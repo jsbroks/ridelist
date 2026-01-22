@@ -73,6 +73,8 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
+// Note: Additional user relations (rides, rideRequests) are defined in schema.ts
+// to avoid circular imports. This file only contains auth-related relations.
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
