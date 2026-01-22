@@ -15,7 +15,7 @@ import { Button } from "@app/ui/button";
 import { HydrateClient } from "~/trpc/server";
 import { Navbar } from "./_components/navbar";
 import { PopularRoutes } from "./_components/popular-routes";
-import { RideSearch } from "./_components/ride-search";
+import { RideSearchWithState } from "./_components/ride-search";
 
 export const metadata: Metadata = {
   title: "Find & Share Rides Across Canada | RideList",
@@ -231,7 +231,7 @@ export default function HomePage() {
             </div>
 
             <div>
-              <RideSearch />
+              <RideSearchWithState />
             </div>
 
             {/* Road decoration under search */}

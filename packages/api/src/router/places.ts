@@ -37,6 +37,24 @@ interface GoogleAutocompleteResponse {
   };
 }
 
+interface GooglePlaceDetailsResponse {
+  id: string;
+  displayName?: {
+    text: string;
+    languageCode: string;
+  };
+  formattedAddress?: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
+  error?: {
+    code: number;
+    message: string;
+    status: string;
+  };
+}
+
 export const placesRouter = {
   autocomplete: publicProcedure
     .input(
@@ -103,6 +121,56 @@ export const placesRouter = {
             prediction.structuredFormat.secondaryText?.text ?? null,
           types: prediction.types ?? [],
         })),
+      };
+    }),
+
+  getDetails: publicProcedure
+    .input(
+      z.object({
+        placeId: z.string().min(1),
+      }),
+    )
+    .query(async ({ input }) => {
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+
+      if (!apiKey) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Google Maps API key is not configured",
+        });
+      }
+
+      const url = `https://places.googleapis.com/v1/places/${input.placeId}`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": "id,displayName,formattedAddress,location",
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = (await response.json()) as GooglePlaceDetailsResponse;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: errorData.error?.message ?? "Failed to fetch place details",
+        });
+      }
+
+      const data = (await response.json()) as GooglePlaceDetailsResponse;
+
+      return {
+        placeId: data.id,
+        name: data.displayName?.text ?? null,
+        formattedAddress: data.formattedAddress ?? null,
+        location: data.location
+          ? {
+              lat: data.location.latitude,
+              lng: data.location.longitude,
+            }
+          : null,
       };
     }),
 } satisfies TRPCRouterRecord;

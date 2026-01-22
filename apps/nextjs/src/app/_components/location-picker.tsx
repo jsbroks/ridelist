@@ -37,7 +37,7 @@ export interface PlacePrediction {
 }
 
 interface LocationPickerProps {
-  label: string;
+  label?: string;
   placeholder: string;
   value: PlacePrediction | null;
   onChange: (value: PlacePrediction | null) => void;
@@ -68,8 +68,12 @@ export function LocationPicker({
   const predictions = data?.predictions ?? [];
 
   return (
-    <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
+    <div>
+      {label && (
+        <Label htmlFor={id} className="pb-2">
+          {label}
+        </Label>
+      )}
       <Combobox
         open={open}
         onOpenChange={(isOpen) => {
@@ -87,7 +91,7 @@ export function LocationPicker({
         <ComboboxInput
           id={id}
           placeholder={placeholder}
-          className={cn("h-9 w-full", inputClassName)}
+          className={cn("h-9 w-full pb-0", inputClassName)}
           value={open ? inputValue : value?.mainText}
           showClear={!!inputValue}
         />
