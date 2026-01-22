@@ -17,7 +17,7 @@ import { Label } from "@app/ui/label";
 
 import { useTRPC } from "~/trpc/react";
 
-function useDebounce<T>(value: T, delay: number): T {
+function useDebounce<T>(value: T, delay: number): [T, (value: T) => void] {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
   useEffect(() => {
@@ -25,7 +25,7 @@ function useDebounce<T>(value: T, delay: number): T {
     return () => clearTimeout(timer);
   }, [value, delay]);
 
-  return debouncedValue;
+  return [debouncedValue, setDebouncedValue];
 }
 
 export interface PlacePrediction {
@@ -55,7 +55,7 @@ export function LocationPicker({
 }: LocationPickerProps) {
   const [inputValue, setInputValue] = useState("");
   const [open, setOpen] = useState(false);
-  const debouncedQuery = useDebounce(inputValue, 300);
+  const [debouncedQuery, setDebouncedQuery] = useDebounce(inputValue, 300);
 
   const trpc = useTRPC();
   const { data, isLoading } = useQuery(
@@ -72,7 +72,13 @@ export function LocationPicker({
       <Label htmlFor={id}>{label}</Label>
       <Combobox
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={(isOpen) => {
+          setOpen(isOpen);
+          if (isOpen) {
+            setInputValue(value?.mainText ?? "");
+            setDebouncedQuery(value?.mainText ?? "");
+          }
+        }}
         value={value}
         onValueChange={onChange}
         inputValue={inputValue}
@@ -82,8 +88,8 @@ export function LocationPicker({
           id={id}
           placeholder={placeholder}
           className={cn("h-9 w-full", inputClassName)}
-          value={value?.mainText}
-          showClear={!!inputValue || !!value}
+          value={open ? inputValue : value?.mainText}
+          showClear={!!inputValue}
         />
         <ComboboxContent>
           <ComboboxList>

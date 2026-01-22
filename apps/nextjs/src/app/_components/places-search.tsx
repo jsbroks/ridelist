@@ -15,7 +15,7 @@ import {
 
 import { useTRPC } from "~/trpc/react";
 
-function useDebounce<T>(value: T, delay: number): T {
+function useDebounce<T>(value: T, delay: number): [T, (value: T) => void] {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
   useEffect(() => {
@@ -23,7 +23,7 @@ function useDebounce<T>(value: T, delay: number): T {
     return () => clearTimeout(timer);
   }, [value, delay]);
 
-  return debouncedValue;
+  return [debouncedValue, setDebouncedValue];
 }
 
 interface PlacePrediction {
@@ -40,7 +40,7 @@ export function PlacesSearch() {
     null,
   );
   const [open, setOpen] = useState(false);
-  const debouncedQuery = useDebounce(inputValue, 300);
+  const [debouncedQuery, setDebouncedQuery] = useDebounce(inputValue, 300);
 
   const trpc = useTRPC();
   const { data, isLoading } = useQuery(
@@ -65,17 +65,30 @@ export function PlacesSearch() {
 
       <Combobox
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={(isOpen) => {
+          setOpen(isOpen);
+          // Sync input value with selected place when opening
+          if (selectedPlace) {
+            setInputValue(selectedPlace.mainText);
+            setDebouncedQuery(selectedPlace.mainText);
+          }
+        }}
         value={selectedPlace}
-        onValueChange={setSelectedPlace}
+        onValueChange={(place) => {
+          setSelectedPlace(place);
+          // Update input value to show the selected place's name
+          if (place) {
+            setInputValue(place.mainText);
+          }
+        }}
         inputValue={inputValue}
         onInputValueChange={setInputValue}
       >
         <ComboboxInput
           placeholder="Search for a place in Canada..."
           className="w-full"
-          value={selectedPlace?.mainText}
-          showClear={!!inputValue}
+          value={selectedPlace && !open ? selectedPlace.mainText : inputValue}
+          showClear={!!inputValue || !!selectedPlace}
         />
         <ComboboxContent>
           <ComboboxList>

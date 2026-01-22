@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 "use client";
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
@@ -5,8 +7,24 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-redundant-type-constituents */
 import { useEffect, useRef, useState } from "react";
-import { APIProvider, Map, useMap } from "@vis.gl/react-google-maps";
+import {
+  AdvancedMarker,
+  APIProvider,
+  Map,
+  useMap,
+} from "@vis.gl/react-google-maps";
 import { MapPin } from "lucide-react";
+
+export interface TownSuggestion {
+  name: string;
+  placeId: string;
+}
+
+export interface RouteInfo {
+  distance: string;
+  duration: string;
+  distanceKm: number;
+}
 
 interface RouteMapProps {
   apiKey?: string;
@@ -14,11 +32,9 @@ interface RouteMapProps {
   toPlaceId: string | null;
   fromName?: string;
   toName?: string;
-}
-
-interface RouteInfo {
-  distance: string;
-  duration: string;
+  stops?: TownSuggestion[];
+  onRouteInfoChange?: (info: RouteInfo | null) => void;
+  onTownSuggestionsChange?: (towns: TownSuggestion[]) => void;
 }
 
 // Default center on Canada
@@ -28,9 +44,13 @@ const DEFAULT_ZOOM = 4;
 function DirectionsRenderer({
   fromPlaceId,
   toPlaceId,
+  onRouteInfoChange,
+  onTownSuggestionsChange,
 }: {
   fromPlaceId: string;
   toPlaceId: string;
+  onRouteInfoChange?: (info: RouteInfo | null) => void;
+  onTownSuggestionsChange?: (towns: TownSuggestion[]) => void;
 }) {
   const map = useMap();
   const directionsServiceRef = useRef<google.maps.DirectionsService | null>(
@@ -40,6 +60,87 @@ function DirectionsRenderer({
     null,
   );
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
+  const [_townSuggestions, setTownSuggestions] = useState<TownSuggestion[]>([]);
+  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+
+  // Use refs for callbacks to avoid triggering effect re-runs
+  const onRouteInfoChangeRef = useRef(onRouteInfoChange);
+  const onTownSuggestionsChangeRef = useRef(onTownSuggestionsChange);
+  onRouteInfoChangeRef.current = onRouteInfoChange;
+  onTownSuggestionsChangeRef.current = onTownSuggestionsChange;
+
+  // Extract towns along the route using reverse geocoding
+  const extractTownsAlongRoute = async (
+    route: google.maps.DirectionsRoute,
+    distanceKm: number,
+  ) => {
+    const path = route.overview_path;
+    if (!path || path.length < 2) return;
+
+    geocoderRef.current ??= new google.maps.Geocoder();
+    const geocoder = geocoderRef.current;
+
+    const towns: TownSuggestion[] = [];
+    const seenPlaceIds = new Set<string>();
+
+    // Sample every 30km along the route, excluding start and end
+    const SAMPLE_INTERVAL_KM = 20;
+    const numSamples = Math.floor(distanceKm / SAMPLE_INTERVAL_KM);
+
+    // If the trip is too short, don't sample any intermediate points
+    if (numSamples < 1) {
+      setTownSuggestions([]);
+      onTownSuggestionsChangeRef.current?.([]);
+      return;
+    }
+
+    // Calculate sample indices based on distance intervals
+    const sampleIndices: number[] = [];
+    for (let i = 1; i <= numSamples; i++) {
+      const percentage = (i * SAMPLE_INTERVAL_KM) / distanceKm;
+      // Don't sample too close to the end (within 10% of destination)
+      if (percentage < 0.9) {
+        const index = Math.floor(path.length * percentage);
+        sampleIndices.push(index);
+      }
+    }
+
+    for (const index of sampleIndices) {
+      const point = path[index];
+      if (!point) continue;
+
+      try {
+        const result = await geocoder.geocode({ location: point });
+        // Find a locality (city/town) result
+        const locality = result.results.find(
+          (r) =>
+            r.types.includes("locality") ?? r.types.includes("sublocality"),
+        );
+
+        if (locality && !seenPlaceIds.has(locality.place_id)) {
+          seenPlaceIds.add(locality.place_id);
+          // Extract just the city name from the formatted address
+          const cityName =
+            locality.address_components.find(
+              (c) =>
+                c.types.includes("locality") ?? c.types.includes("sublocality"),
+            )?.long_name ?? locality.formatted_address.split(",")[0];
+
+          if (cityName) {
+            towns.push({
+              name: cityName,
+              placeId: locality.place_id,
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Geocoding failed for point:", e);
+      }
+    }
+
+    setTownSuggestions(towns);
+    onTownSuggestionsChangeRef.current?.(towns);
+  };
 
   // Initialize directions service and renderer
   useEffect(() => {
@@ -89,23 +190,35 @@ function DirectionsRenderer({
         renderer.setDirections(response);
         const route = response.routes[0];
         const leg = route?.legs[0];
+        const distanceKm = (leg?.distance?.value ?? 0) / 1000;
+
         if (leg) {
-          setRouteInfo({
+          const info: RouteInfo = {
             distance: leg.distance?.text ?? "",
             duration: leg.duration?.text ?? "",
-          });
+            distanceKm,
+          };
+          setRouteInfo(info);
+          onRouteInfoChangeRef.current?.(info);
+        }
+        // Extract towns along the route
+        if (route) {
+          void extractTownsAlongRoute(route, distanceKm);
         }
       })
       .catch((e: unknown) => {
         console.error("Directions request failed:", e);
         setRouteInfo(null);
+        setTownSuggestions([]);
+        onRouteInfoChangeRef.current?.(null);
+        onTownSuggestionsChangeRef.current?.([]);
       });
   }, [fromPlaceId, toPlaceId]);
 
   if (!routeInfo) return null;
 
   return (
-    <div className="absolute right-4 bottom-4 left-4 z-10">
+    <div className="pointer-events-auto absolute right-4 bottom-4 left-4 z-10">
       <div className="bg-card/95 rounded-lg border p-3 shadow-lg backdrop-blur-sm">
         <div className="flex items-center justify-between gap-4 text-sm">
           <div>
@@ -122,11 +235,91 @@ function DirectionsRenderer({
   );
 }
 
+// Type for stop locations cache
+type StopLocationCache = Record<string, google.maps.LatLngLiteral>;
+
+// Component to render markers for stops
+function StopMarkers({ stops }: { stops: TownSuggestion[] }) {
+  const [stopLocations, setStopLocations] = useState<StopLocationCache>({});
+  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.google?.maps) return;
+    if (stops.length === 0) {
+      setStopLocations({});
+      return;
+    }
+
+    geocoderRef.current ??= new google.maps.Geocoder();
+    const geocoder = geocoderRef.current;
+
+    const fetchLocations = async () => {
+      const newLocations: StopLocationCache = {};
+
+      for (const stop of stops) {
+        // Skip if we already have this location cached
+        const cachedLocation = stopLocations[stop.placeId];
+        if (cachedLocation) {
+          newLocations[stop.placeId] = cachedLocation;
+          continue;
+        }
+
+        try {
+          const result = await geocoder.geocode({ placeId: stop.placeId });
+          const location = result.results[0]?.geometry.location;
+          if (location) {
+            newLocations[stop.placeId] = {
+              lat: location.lat(),
+              lng: location.lng(),
+            };
+          }
+        } catch (e) {
+          console.error("Failed to geocode stop:", stop.name, e);
+        }
+      }
+
+      setStopLocations(newLocations);
+    };
+
+    void fetchLocations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stops]);
+
+  return (
+    <>
+      {stops.map((stop, index) => {
+        const location = stopLocations[stop.placeId];
+        if (!location) return null;
+
+        return (
+          <AdvancedMarker key={stop.placeId} position={location}>
+            <div className="flex flex-col items-center">
+              {/* Custom marker pin */}
+              <div className="relative">
+                <div className="bg-primary flex size-5 items-center justify-center rounded-full border border-white shadow-md">
+                  <span className="text-[10px] font-bold text-white">
+                    {index + 1}
+                  </span>
+                </div>
+                {/* Pin tail */}
+                <div className="border-primary absolute -bottom-1 left-1/2 size-0 -translate-x-1/2 border-x-4 border-t-[5px] border-x-transparent" />
+              </div>
+            </div>
+          </AdvancedMarker>
+        );
+      })}
+    </>
+  );
+}
+
 function MapContent({
   fromPlaceId,
   toPlaceId,
   fromName,
   toName,
+  stops = [],
+  onRouteInfoChange,
+  onTownSuggestionsChange,
 }: Omit<RouteMapProps, "apiKey">) {
   const hasRoute = fromPlaceId && toPlaceId;
 
@@ -141,8 +334,14 @@ function MapContent({
         className="h-full w-full"
       >
         {hasRoute && (
-          <DirectionsRenderer fromPlaceId={fromPlaceId} toPlaceId={toPlaceId} />
+          <DirectionsRenderer
+            fromPlaceId={fromPlaceId}
+            toPlaceId={toPlaceId}
+            onRouteInfoChange={onRouteInfoChange}
+            onTownSuggestionsChange={onTownSuggestionsChange}
+          />
         )}
+        {stops.length > 0 && <StopMarkers stops={stops} />}
       </Map>
 
       {/* Empty state overlay */}

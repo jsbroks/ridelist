@@ -16,9 +16,12 @@ import {
   Loader2,
   Luggage,
   MapPin,
+  Navigation,
   PawPrint,
+  Plus,
   Snowflake,
   Users,
+  X,
 } from "lucide-react";
 
 import { Button } from "@app/ui/button";
@@ -38,6 +41,7 @@ import { Separator } from "@app/ui/separator";
 import { Textarea } from "@app/ui/textarea";
 
 import type { PlacePrediction } from "~/app/_components/location-picker";
+import type { RouteInfo, TownSuggestion } from "~/app/_components/route-map";
 import { LocationPicker } from "~/app/_components/location-picker";
 import { Navbar } from "~/app/_components/navbar";
 import { RouteMap } from "~/app/_components/route-map";
@@ -71,6 +75,62 @@ export function PostRideForm({ googleMapsApiKey }: PostRideFormProps) {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [returnCalendarOpen, setReturnCalendarOpen] = useState(false);
 
+  // Route and stops state
+  const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
+  const [townSuggestions, setTownSuggestions] = useState<TownSuggestion[]>([]);
+  const [stops, setStops] = useState<TownSuggestion[]>([]);
+  const [hasAutoPopulatedStops, setHasAutoPopulatedStops] = useState(false);
+  const [isAddingStop, setIsAddingStop] = useState(false);
+  const [manualStopInput, setManualStopInput] =
+    useState<PlacePrediction | null>(null);
+
+  // Handle route info changes
+  const handleRouteInfoChange = (info: RouteInfo | null) => {
+    setRouteInfo(info);
+    // Reset auto-population flag when route changes
+    if (!info) {
+      setHasAutoPopulatedStops(false);
+      setStops([]);
+    }
+  };
+
+  // Handle town suggestions changes and auto-populate stops
+  const handleTownSuggestionsChange = (towns: TownSuggestion[]) => {
+    setTownSuggestions(towns);
+
+    // Auto-populate stops if trip is over 50km and hasn't been auto-populated yet
+    if (
+      routeInfo &&
+      routeInfo.distanceKm > 50 &&
+      !hasAutoPopulatedStops &&
+      towns.length > 0
+    ) {
+      setStops(towns);
+      setHasAutoPopulatedStops(true);
+    }
+  };
+
+  // Add a stop from suggestions
+  const addStop = (town: TownSuggestion) => {
+    if (!stops.some((s) => s.placeId === town.placeId)) {
+      setStops([...stops, town]);
+    }
+  };
+
+  // Add a stop from manual input
+  const addManualStop = (place: PlacePrediction | null) => {
+    if (place && !stops.some((s) => s.placeId === place.placeId)) {
+      setStops([...stops, { name: place.mainText, placeId: place.placeId }]);
+      setManualStopInput(null);
+      setIsAddingStop(false);
+    }
+  };
+
+  // Remove a stop
+  const removeStop = (placeId: string) => {
+    setStops(stops.filter((s) => s.placeId !== placeId));
+  };
+
   const canSubmit =
     fromLocation && toLocation && date && departureTime && price;
 
@@ -84,6 +144,7 @@ export function PostRideForm({ googleMapsApiKey }: PostRideFormProps) {
     console.log("Posting ride:", {
       from: fromLocation,
       to: toLocation,
+      stops: stops.map((s) => ({ name: s.name, placeId: s.placeId })),
       date,
       departureTime,
       isRoundTrip,
@@ -99,6 +160,7 @@ export function PostRideForm({ googleMapsApiKey }: PostRideFormProps) {
         pets: allowsPets,
       },
       notes,
+      routeInfo,
     });
 
     await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -171,6 +233,146 @@ export function PostRideForm({ googleMapsApiKey }: PostRideFormProps) {
                         inputClassName="h-10"
                       />
                     </div>
+
+                    {/* Stops Section - Shows when route is set */}
+                    {fromLocation && toLocation && (
+                      <div className="mt-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <Label className="text-sm font-medium">
+                              Stops Along the Way
+                            </Label>
+                            <p className="text-muted-foreground mt-1 text-xs">
+                              Add pickup/dropoff points for passengers
+                              {routeInfo && routeInfo.distanceKm > 50 && (
+                                <span className="text-primary ml-1">
+                                  (auto-suggested for trips over 50km)
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          {routeInfo && (
+                            <span className="text-muted-foreground text-xs">
+                              {routeInfo.distance} • {routeInfo.duration}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Current stops */}
+                        {stops.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {stops.map((stop, index) => (
+                              <div
+                                key={stop.placeId}
+                                className="bg-primary/10 border-primary/20 flex items-center gap-2 rounded-full border py-1.5 pr-2 pl-3"
+                              >
+                                <span className="bg-primary/20 text-primary flex size-5 items-center justify-center rounded-full text-xs font-medium">
+                                  {index + 1}
+                                </span>
+                                <span className="text-sm font-medium">
+                                  {stop.name}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeStop(stop.placeId)}
+                                  className="text-muted-foreground hover:text-foreground ml-1 transition-colors"
+                                >
+                                  <X className="size-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Suggested stops */}
+                        {townSuggestions.filter(
+                          (town) =>
+                            !stops.some((s) => s.placeId === town.placeId),
+                        ).length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-muted-foreground text-xs">
+                              Suggested stops:
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {townSuggestions
+                                .filter(
+                                  (town) =>
+                                    !stops.some(
+                                      (s) => s.placeId === town.placeId,
+                                    ),
+                                )
+                                .map((town) => (
+                                  <button
+                                    key={town.placeId}
+                                    type="button"
+                                    onClick={() => addStop(town)}
+                                    className="hover:border-primary hover:bg-primary/5 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors"
+                                  >
+                                    <Plus className="size-3.5" />
+                                    {town.name}
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Manual stop input */}
+                        {isAddingStop ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1">
+                                <LocationPicker
+                                  id="manual-stop"
+                                  label=""
+                                  placeholder="Search for a location..."
+                                  value={manualStopInput}
+                                  onChange={(place) => {
+                                    setManualStopInput(place);
+                                    if (place) {
+                                      addManualStop(place);
+                                    }
+                                  }}
+                                  inputClassName="h-9"
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setIsAddingStop(false);
+                                  setManualStopInput(null);
+                                }}
+                              >
+                                <X className="size-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setIsAddingStop(true)}
+                            className="hover:border-primary hover:bg-primary/5 flex items-center gap-2 rounded-lg border border-dashed px-4 py-2.5 text-sm transition-colors"
+                          >
+                            <Plus className="size-4" />
+                            Add a stop
+                          </button>
+                        )}
+
+                        {/* Empty state */}
+                        {stops.length === 0 &&
+                          townSuggestions.length === 0 &&
+                          !isAddingStop && (
+                            <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                              <Navigation className="size-4" />
+                              <span>
+                                No stops added yet. Add stops or wait for route
+                                suggestions.
+                              </span>
+                            </div>
+                          )}
+                      </div>
+                    )}
                   </section>
 
                   <Separator />
@@ -608,6 +810,9 @@ export function PostRideForm({ googleMapsApiKey }: PostRideFormProps) {
                   toPlaceId={toLocation?.placeId ?? null}
                   fromName={fromLocation?.mainText}
                   toName={toLocation?.mainText}
+                  stops={stops}
+                  onRouteInfoChange={handleRouteInfoChange}
+                  onTownSuggestionsChange={handleTownSuggestionsChange}
                 />
               </div>
             </div>
