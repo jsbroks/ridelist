@@ -51,6 +51,7 @@
     "AUTH_GOOGLE_CLIENT_SECRET",
     "AUTH_REDIRECT_PROXY_URL",
     "AUTH_SECRET",
+    "GOOGLE_MAPS_API_KEY",
     "PORT"
   ],
   "globalPassThroughEnv": [

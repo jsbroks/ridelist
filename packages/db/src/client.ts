@@ -16,7 +16,6 @@ export const pool = new Pool({
   ssl: false,
 });
 
-
 export const db = drizzle({
   client: pool,
   schema,
