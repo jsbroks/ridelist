@@ -13,7 +13,6 @@ import {
 import { Button } from "@app/ui/button";
 
 import { HydrateClient } from "~/trpc/server";
-
 import { Navbar } from "./_components/navbar";
 import { PopularRoutes } from "./_components/popular-routes";
 import { RideSearch } from "./_components/ride-search";
@@ -267,7 +266,10 @@ export default function HomePage() {
         <PopularRoutes />
 
         {/* CTA Section */}
-        <section className="bg-primary/5 relative overflow-hidden py-20" aria-label="Post a ride">
+        <section
+          className="bg-primary/5 relative overflow-hidden py-20"
+          aria-label="Post a ride"
+        >
           {/* Animated background */}
           <div className="pointer-events-none absolute inset-0">
             <div className="bg-primary/10 animate-pulse-slow absolute top-1/2 left-1/4 size-64 -translate-y-1/2 rounded-full blur-3xl" />
@@ -306,7 +308,10 @@ export default function HomePage() {
         </section>
 
         {/* Trust Section */}
-        <section className="border-t py-12" aria-label="Trust and safety features">
+        <section
+          className="border-t py-12"
+          aria-label="Trust and safety features"
+        >
           <div className="container">
             <div className="flex flex-col items-center justify-center gap-6 md:flex-row md:gap-12">
               {[
@@ -334,13 +339,19 @@ export default function HomePage() {
           <div className="container">
             <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
               <div className="group flex items-center gap-2">
-                <Car className="text-primary size-6 transition-transform group-hover:rotate-12" aria-hidden="true" />
+                <Car
+                  className="text-primary size-6 transition-transform group-hover:rotate-12"
+                  aria-hidden="true"
+                />
                 <span className="text-xl font-bold">RideList</span>
               </div>
               <p className="text-muted-foreground text-sm">
                 © 2026 RideList. Connecting Canadians, one ride at a time.
               </p>
-              <nav className="text-muted-foreground flex gap-6 text-sm" aria-label="Footer navigation">
+              <nav
+                className="text-muted-foreground flex gap-6 text-sm"
+                aria-label="Footer navigation"
+              >
                 <a
                   href="/about"
                   className="hover:text-primary transition-colors hover:underline"

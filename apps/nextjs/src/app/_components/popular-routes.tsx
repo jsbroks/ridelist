@@ -117,7 +117,7 @@ export function PopularRoutes() {
                 {province.routes.map((route, index) => (
                   <button
                     key={`${province.id}-${route.from}-${route.to}-${index}`}
-                    className="group py-1 text-left transition-colors hover:opacity-70"
+                    className="group hover:border-accent cursor-pointer rounded-lg border border-transparent px-2 py-3 text-left transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       <ArrowRight className="text-primary size-4 shrink-0" />
@@ -137,7 +137,7 @@ export function PopularRoutes() {
 
               {/* View All Link */}
               <div className="mt-4">
-                <button className="text-primary hover:text-primary/80 text-sm font-medium">
+                <button className="text-primary hover:text-primary/80 cursor-pointer text-sm font-medium">
                   View all routes →
                 </button>
               </div>
