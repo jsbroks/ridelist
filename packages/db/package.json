@@ -1,5 +1,5 @@
 {
-  "name": "@acme/db",
+  "name": "@app/db",
   "private": true,
   "type": "module",
   "exports": {
@@ -18,6 +18,7 @@
   },
   "license": "MIT",
   "scripts": {
+    
     "build": "tsc",
     "clean": "git clean -xdf .cache .turbo dist node_modules",
     "dev": "tsc",
@@ -35,13 +36,13 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@acme/eslint-config": "workspace:*",
-    "@acme/prettier-config": "workspace:*",
-    "@acme/tsconfig": "workspace:*",
+    "@app/eslint-config": "workspace:*",
+    "@app/prettier-config": "workspace:*",
+    "@app/tsconfig": "workspace:*",
     "drizzle-kit": "^0.31.5",
     "eslint": "catalog:",
     "prettier": "catalog:",
     "typescript": "catalog:"
   },
-  "prettier": "@acme/prettier-config"
+  "prettier": "@app/prettier-config"
 }

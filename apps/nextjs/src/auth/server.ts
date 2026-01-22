@@ -4,7 +4,7 @@ import { cache } from "react";
 import { headers } from "next/headers";
 import { nextCookies } from "better-auth/next-js";
 
-import { initAuth } from "@acme/auth";
+import { initAuth } from "@app/auth";
 
 import { env } from "~/env";
 
@@ -19,9 +19,9 @@ export const auth = initAuth({
   baseUrl,
   productionUrl: `https://${env.VERCEL_PROJECT_PRODUCTION_URL ?? "turbo.t3.gg"}`,
   secret: env.AUTH_SECRET,
-  discordClientId: env.AUTH_DISCORD_ID,
-  discordClientSecret: env.AUTH_DISCORD_SECRET,
-  extraPlugins: [nextCookies()],
+  googleClientId: env.AUTH_GOOGLE_CLIENT_ID,
+  googleClientSecret: env.AUTH_GOOGLE_CLIENT_SECRET,
+  extraPlugins: [nextCookies()],  
 });
 
 export const getSession = cache(async () =>

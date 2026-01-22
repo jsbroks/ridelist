@@ -1,10 +1,10 @@
 import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
 import { expo } from "@better-auth/expo";
-import { betterAuth } from "better-auth";
+import { betterAuth,  } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { oAuthProxy } from "better-auth/plugins";
 
-import { db } from "@acme/db/client";
+import { db } from "@app/db/client";
 
 export function initAuth<
   TExtraPlugins extends BetterAuthPlugin[] = [],
@@ -13,8 +13,8 @@ export function initAuth<
   productionUrl: string;
   secret: string | undefined;
 
-  discordClientId: string;
-  discordClientSecret: string;
+  googleClientId: string;
+  googleClientSecret: string;
   extraPlugins?: TExtraPlugins;
 }) {
   const config = {
@@ -31,10 +31,9 @@ export function initAuth<
       ...(options.extraPlugins ?? []),
     ],
     socialProviders: {
-      discord: {
-        clientId: options.discordClientId,
-        clientSecret: options.discordClientSecret,
-        redirectURI: `${options.productionUrl}/api/auth/callback/discord`,
+      google: {
+        clientId: options.googleClientId,
+        clientSecret: options.googleClientSecret,
       },
     },
     trustedOrigins: ["expo://"],

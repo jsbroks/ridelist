@@ -1,5 +1,5 @@
 {
-  "name": "@acme/validators",
+  "name": "@app/validators",
   "private": true,
   "type": "module",
   "exports": {
@@ -21,12 +21,12 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@acme/eslint-config": "workspace:*",
-    "@acme/prettier-config": "workspace:*",
-    "@acme/tsconfig": "workspace:*",
+    "@app/eslint-config": "workspace:*",
+    "@app/prettier-config": "workspace:*",
+    "@app/tsconfig": "workspace:*",
     "eslint": "catalog:",
     "prettier": "catalog:",
     "typescript": "catalog:"
   },
-  "prettier": "@acme/prettier-config"
+  "prettier": "@app/prettier-config"
 }

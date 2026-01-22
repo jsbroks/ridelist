@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: ridelist-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ridelist
+      POSTGRES_PASSWORD: ridelist
+      POSTGRES_DB: ridelist
+    ports:
+      - "5432:5432"
+    volumes:
+      - ridelist_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ridelist -d ridelist"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  ridelist_postgres_data:
