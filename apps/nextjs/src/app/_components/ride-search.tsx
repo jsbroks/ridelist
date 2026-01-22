@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { format, startOfDay } from "date-fns";
 import { ArrowRightLeft, CalendarIcon, MapPin, Search } from "lucide-react";
 
 import { Button } from "@app/ui/button";
@@ -79,7 +79,7 @@ function LocationPicker({
       >
         <ComboboxInput
           placeholder={placeholder}
-          className="w-full h-9"
+          className="h-9 w-full"
           value={value?.mainText}
           showClear={!!inputValue || !!value}
         />
@@ -110,7 +110,9 @@ function LocationPicker({
                 </ComboboxItem>
               ))}
             {!isLoading && debouncedQuery && predictions.length === 0 && (
-              <ComboboxEmpty>No places found for "{debouncedQuery}"</ComboboxEmpty>
+              <ComboboxEmpty>
+                No places found for "{debouncedQuery}"
+              </ComboboxEmpty>
             )}
             {!debouncedQuery && (
               <ComboboxEmpty>Start typing to search for places</ComboboxEmpty>
@@ -123,7 +125,9 @@ function LocationPicker({
 }
 
 export function RideSearch() {
-  const [fromLocation, setFromLocation] = useState<PlacePrediction | null>(null);
+  const [fromLocation, setFromLocation] = useState<PlacePrediction | null>(
+    null,
+  );
   const [toLocation, setToLocation] = useState<PlacePrediction | null>(null);
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -200,7 +204,7 @@ export function RideSearch() {
                     setDate(newDate);
                     setCalendarOpen(false);
                   }}
-                  disabled={(date) => date < new Date()}
+                  disabled={(date) => date < startOfDay(new Date())}
                   initialFocus
                 />
               </PopoverContent>
