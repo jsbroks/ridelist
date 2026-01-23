@@ -153,7 +153,6 @@ export const rideRequest = pgTable(
   ],
 );
 
-// Relations
 export const rideRelations = relations(ride, ({ one, many }) => ({
   driver: one(user, {
     fields: [ride.driverId],

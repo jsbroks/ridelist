@@ -1,8 +1,9 @@
 import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
 import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
+import { emailHarmony, phoneHarmony } from "better-auth-harmony";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { oAuthProxy } from "better-auth/plugins";
+import { oAuthProxy, username } from "better-auth/plugins";
 
 import { db } from "@app/db/client";
 
@@ -28,6 +29,9 @@ export function initAuth<
         productionURL: options.productionUrl,
       }),
       expo(),
+      username(),
+      emailHarmony(),
+      phoneHarmony(),
       ...(options.extraPlugins ?? []),
     ],
     socialProviders: {

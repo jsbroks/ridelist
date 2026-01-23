@@ -1,3 +1,4 @@
+import type { skipToken } from "@tanstack/react-query";
 import type { TRPCQueryOptions } from "@trpc/tanstack-react-query";
 import { cache } from "react";
 import { headers } from "next/headers";
@@ -56,7 +57,9 @@ export function prefetch<T extends ReturnType<TRPCQueryOptions<any>>>(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function fetchQuery<T extends ReturnType<TRPCQueryOptions<any>>>(
   queryOptions: T,
-): Promise<Awaited<ReturnType<NonNullable<T["queryFn"]>>>> {
+): Promise<
+  Awaited<ReturnType<Exclude<T["queryFn"], typeof skipToken | undefined>>>
+> {
   const queryClient = getQueryClient();
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return queryClient.fetchQuery(queryOptions);

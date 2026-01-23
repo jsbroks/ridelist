@@ -1,11 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 "use client";
 
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-redundant-type-constituents */
 import { useEffect, useRef, useState } from "react";
 import {
   AdvancedMarker,
@@ -39,7 +33,7 @@ interface RouteMapProps {
 
 // Default center on Canada
 const CANADA_CENTER = { lat: 56.1304, lng: -106.3468 };
-const DEFAULT_ZOOM = 4;
+const DEFAULT_ZOOM = 3;
 
 function DirectionsRenderer({
   fromPlaceId,
@@ -75,6 +69,7 @@ function DirectionsRenderer({
     distanceKm: number,
   ) => {
     const path = route.overview_path;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!path || path.length < 2) return;
 
     geocoderRef.current ??= new google.maps.Geocoder();
@@ -114,6 +109,7 @@ function DirectionsRenderer({
         // Find a locality (city/town) result
         const locality = result.results.find(
           (r) =>
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
             r.types.includes("locality") ?? r.types.includes("sublocality"),
         );
 
@@ -123,6 +119,7 @@ function DirectionsRenderer({
           const cityName =
             locality.address_components.find(
               (c) =>
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                 c.types.includes("locality") ?? c.types.includes("sublocality"),
             )?.long_name ?? locality.formatted_address.split(",")[0];
 
@@ -147,6 +144,7 @@ function DirectionsRenderer({
     if (!map) return;
 
     // Check if google is defined
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (typeof window === "undefined" || !window.google?.maps) return;
 
     const googleMaps = window.google.maps;
@@ -157,6 +155,7 @@ function DirectionsRenderer({
       directionsRendererRef.current = new googleMaps.DirectionsRenderer({
         map,
         suppressMarkers: false,
+        preserveViewport: true, // We'll manually fit bounds with padding
         polylineOptions: {
           strokeColor: "hsl(var(--primary))",
           strokeWeight: 4,
@@ -178,6 +177,7 @@ function DirectionsRenderer({
     const renderer = directionsRendererRef.current;
 
     if (!service || !renderer || !fromPlaceId || !toPlaceId) return;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (typeof window === "undefined" || !window.google?.maps) return;
 
     void service
@@ -192,6 +192,16 @@ function DirectionsRenderer({
         const leg = route?.legs[0];
         const distanceKm = (leg?.distance?.value ?? 0) / 1000;
 
+        // Fit bounds with padding for overlays (top header + bottom info panel)
+        if (route?.bounds && map) {
+          map.fitBounds(route.bounds, {
+            top: 80,
+            bottom: 100,
+            left: 20,
+            right: 20,
+          });
+        }
+
         if (leg) {
           const info: RouteInfo = {
             distance: leg.distance?.text ?? "",
@@ -201,8 +211,8 @@ function DirectionsRenderer({
           setRouteInfo(info);
           onRouteInfoChangeRef.current?.(info);
         }
-        // Extract towns along the route
-        if (route) {
+        // Extract towns along the route only if callback is provided
+        if (route && onTownSuggestionsChangeRef.current) {
           void extractTownsAlongRoute(route, distanceKm);
         }
       })
@@ -213,7 +223,7 @@ function DirectionsRenderer({
         onRouteInfoChangeRef.current?.(null);
         onTownSuggestionsChangeRef.current?.([]);
       });
-  }, [fromPlaceId, toPlaceId]);
+  }, [fromPlaceId, toPlaceId, map]);
 
   if (!routeInfo) return null;
 
@@ -244,6 +254,7 @@ function StopMarkers({ stops }: { stops: TownSuggestion[] }) {
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (typeof window === "undefined" || !window.google?.maps) return;
     if (stops.length === 0) {
       setStopLocations({});

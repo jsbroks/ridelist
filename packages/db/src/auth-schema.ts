@@ -2,7 +2,7 @@ import { relations } from "drizzle-orm";
 import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
-  id: text("id").notNull().primaryKey(),
+  id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
@@ -12,12 +12,15 @@ export const user = pgTable("user", {
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
+  username: text("username").unique(),
+  displayUsername: text("display_username"),
+  normalizedEmail: text("normalized_email").unique(),
 });
 
 export const session = pgTable(
   "session",
   {
-    id: text("id").notNull().primaryKey(),
+    id: text("id").primaryKey(),
     expiresAt: timestamp("expires_at").notNull(),
     token: text("token").notNull().unique(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -36,7 +39,7 @@ export const session = pgTable(
 export const account = pgTable(
   "account",
   {
-    id: text("id").notNull().primaryKey(),
+    id: text("id").primaryKey(),
     accountId: text("account_id").notNull(),
     providerId: text("provider_id").notNull(),
     userId: text("user_id")
@@ -60,7 +63,7 @@ export const account = pgTable(
 export const verification = pgTable(
   "verification",
   {
-    id: text("id").notNull().primaryKey(),
+    id: text("id").primaryKey(),
     identifier: text("identifier").notNull(),
     value: text("value").notNull(),
     expiresAt: timestamp("expires_at").notNull(),
@@ -73,8 +76,6 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
-// Note: Additional user relations (rides, rideRequests) are defined in schema.ts
-// to avoid circular imports. This file only contains auth-related relations.
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),

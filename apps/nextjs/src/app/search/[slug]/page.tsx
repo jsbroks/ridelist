@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { Navbar } from "~/app/_components/navbar";
+import { env } from "~/env";
 import { fetchQuery, trpc } from "~/trpc/server";
 import { SearchFilters } from "./_components/search-filters";
 import { SearchMap } from "./_components/search-map";
@@ -46,12 +47,16 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     fromPlaceId
       ? fetchQuery(
           trpc.places.getDetails.queryOptions({ placeId: fromPlaceId }),
-        )
+        ).catch(() => null)
       : null,
     toPlaceId
-      ? fetchQuery(trpc.places.getDetails.queryOptions({ placeId: toPlaceId }))
+      ? fetchQuery(
+          trpc.places.getDetails.queryOptions({ placeId: toPlaceId }),
+        ).catch(() => null)
       : null,
   ]);
+
+  const googleMapsApiKey = env.GOOGLE_MAPS_API_KEY;
 
   return (
     <div className="bg-background min-h-screen">
@@ -86,11 +91,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           {/* Map sidebar */}
           <div className="lg:sticky lg:top-4 lg:self-start">
             <div className="overflow-hidden rounded-lg border">
-              <div className="bg-muted/50 border-b px-4 py-3">
-                <h3 className="font-medium">Route Overview</h3>
-              </div>
               <div className="h-[400px]">
                 <SearchMap
+                  googleMapsApiKey={googleMapsApiKey}
                   fromPlaceId={fromPlaceId ?? null}
                   toPlaceId={toPlaceId ?? null}
                 />

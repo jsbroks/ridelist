@@ -9,9 +9,14 @@ import { useTRPC } from "~/trpc/react";
 interface SearchMapProps {
   fromPlaceId: string | null;
   toPlaceId: string | null;
+  googleMapsApiKey: string | undefined;
 }
 
-export function SearchMap({ fromPlaceId, toPlaceId }: SearchMapProps) {
+export function SearchMap({
+  fromPlaceId,
+  toPlaceId,
+  googleMapsApiKey,
+}: SearchMapProps) {
   const trpc = useTRPC();
 
   const { data: fromData, isLoading: fromLoading } = useQuery(
@@ -57,6 +62,7 @@ export function SearchMap({ fromPlaceId, toPlaceId }: SearchMapProps) {
 
   return (
     <RouteMap
+      apiKey={googleMapsApiKey}
       fromPlaceId={fromPlaceId}
       toPlaceId={toPlaceId}
       fromName={fromData.name ?? undefined}
