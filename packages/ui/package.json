@@ -6,6 +6,7 @@
     ".": "./src/index.ts",
     "./button": "./src/button.tsx",
     "./dropdown-menu": "./src/dropdown-menu.tsx",
+    "./badge": "./src/badge.tsx",
     "./field": "./src/field.tsx",
     "./input": "./src/input.tsx",
     "./label": "./src/label.tsx",

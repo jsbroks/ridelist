@@ -1,0 +1,10 @@
+version: "1.0"
+default-project: ridelist
+projects:
+  ridelist:
+    default-environment: production
+    environments:
+      production:
+        region: yul
+        compose-files:
+        - file:docker-compose.yml

@@ -7,6 +7,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -28,6 +29,11 @@ export const requestStatusEnum = pgEnum("request_status", [
   "accepted",
   "rejected",
   "cancelled",
+]);
+
+export const reviewTypeEnum = pgEnum("review_type", [
+  "driver_to_passenger", // Driver reviewing a passenger
+  "passenger_to_driver", // Passenger reviewing a driver
 ]);
 
 // Ride - A ride offered by a driver
@@ -153,6 +159,59 @@ export const rideRequest = pgTable(
   ],
 );
 
+// Review - A rating/review left by one user for another after a ride
+export const review = pgTable(
+  "review",
+  {
+    id: uuid("id").notNull().primaryKey().defaultRandom(),
+    rideId: uuid("ride_id")
+      .notNull()
+      .references(() => ride.id, { onDelete: "cascade" }),
+
+    // Who is leaving the review
+    reviewerId: text("reviewer_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+
+    // Who is being reviewed
+    revieweeId: text("reviewee_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+
+    // Type of review (driver reviewing passenger or vice versa)
+    type: reviewTypeEnum("type").notNull(),
+
+    // Rating from 1-5
+    rating: integer("rating").notNull(),
+
+    // Optional review text
+    comment: text("comment"),
+
+    // Whether the review is visible (can be hidden by admin for moderation)
+    isVisible: integer("is_visible").notNull().default(1),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("review_ride_id_idx").on(table.rideId),
+    index("review_reviewer_id_idx").on(table.reviewerId),
+    index("review_reviewee_id_idx").on(table.revieweeId),
+    index("review_rating_idx").on(table.rating),
+    // Unique constraint: one review per reviewer/reviewee/ride combination
+    unique("review_unique").on(
+      table.rideId,
+      table.reviewerId,
+      table.revieweeId,
+    ),
+  ],
+);
+
 export const rideRelations = relations(ride, ({ one, many }) => ({
   driver: one(user, {
     fields: [ride.driverId],
@@ -160,6 +219,7 @@ export const rideRelations = relations(ride, ({ one, many }) => ({
   }),
   stops: many(rideStop),
   requests: many(rideRequest),
+  reviews: many(review),
 }));
 
 export const rideStopRelations = relations(rideStop, ({ one }) => ({
@@ -177,6 +237,23 @@ export const rideRequestRelations = relations(rideRequest, ({ one }) => ({
   passenger: one(user, {
     fields: [rideRequest.passengerId],
     references: [user.id],
+  }),
+}));
+
+export const reviewRelations = relations(review, ({ one }) => ({
+  ride: one(ride, {
+    fields: [review.rideId],
+    references: [ride.id],
+  }),
+  reviewer: one(user, {
+    fields: [review.reviewerId],
+    references: [user.id],
+    relationName: "reviewsGiven",
+  }),
+  reviewee: one(user, {
+    fields: [review.revieweeId],
+    references: [user.id],
+    relationName: "reviewsReceived",
   }),
 }));
 
@@ -218,6 +295,22 @@ export const CreateRideRequestSchema = createInsertSchema(rideRequest, {
 });
 
 export const RideRequestSchema = createSelectSchema(rideRequest);
+
+export const CreateReviewSchema = createInsertSchema(review, {
+  rideId: z.string().uuid(),
+  revieweeId: z.string().min(1),
+  type: z.enum(["driver_to_passenger", "passenger_to_driver"]),
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().max(1000).optional(),
+}).omit({
+  id: true,
+  reviewerId: true,
+  isVisible: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const ReviewSchema = createSelectSchema(review);
 
 // Legacy Post table (can be removed later)
 export const Post = pgTable("post", (t) => ({
