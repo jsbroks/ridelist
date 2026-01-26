@@ -18,6 +18,7 @@ export interface RouteInfo {
   distance: string;
   duration: string;
   distanceKm: number;
+  polyline: string; // Encoded polyline from Google Directions
 }
 
 interface RouteMapProps {
@@ -207,6 +208,7 @@ function DirectionsRenderer({
             distance: leg.distance?.text ?? "",
             duration: leg.duration?.text ?? "",
             distanceKm,
+            polyline: route?.overview_polyline ?? "",
           };
           setRouteInfo(info);
           onRouteInfoChangeRef.current?.(info);

@@ -65,6 +65,7 @@ export const ride = pgTable(
     }).notNull(),
     distanceKm: doublePrecision("distance_km"),
     durationMinutes: integer("duration_minutes"),
+    routePolyline: text("route_polyline"), // Encoded polyline from Google Directions
 
     // Capacity & pricing
     totalSeats: integer("total_seats").notNull().default(3),
@@ -89,30 +90,6 @@ export const ride = pgTable(
     index("ride_to_place_id_idx").on(table.toPlaceId),
     index("ride_departure_time_idx").on(table.departureTime),
     index("ride_status_idx").on(table.status),
-  ],
-);
-
-// Ride stops (intermediate stops along the route)
-export const rideStop = pgTable(
-  "ride_stop",
-  {
-    id: uuid("id").notNull().primaryKey().defaultRandom(),
-    rideId: uuid("ride_id")
-      .notNull()
-      .references(() => ride.id, { onDelete: "cascade" }),
-    placeId: varchar("place_id", { length: 256 }).notNull(),
-    name: varchar("name", { length: 256 }).notNull(),
-    address: text("address"),
-    lat: doublePrecision("lat").notNull(),
-    lng: doublePrecision("lng").notNull(),
-    orderIndex: integer("order_index").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => [
-    index("ride_stop_ride_id_idx").on(table.rideId),
-    index("ride_stop_order_idx").on(table.rideId, table.orderIndex),
   ],
 );
 
@@ -213,20 +190,9 @@ export const review = pgTable(
 );
 
 export const rideRelations = relations(ride, ({ one, many }) => ({
-  driver: one(user, {
-    fields: [ride.driverId],
-    references: [user.id],
-  }),
-  stops: many(rideStop),
+  driver: one(user, { fields: [ride.driverId], references: [user.id] }),
   requests: many(rideRequest),
   reviews: many(review),
-}));
-
-export const rideStopRelations = relations(rideStop, ({ one }) => ({
-  ride: one(ride, {
-    fields: [rideStop.rideId],
-    references: [ride.id],
-  }),
 }));
 
 export const rideRequestRelations = relations(rideRequest, ({ one }) => ({
@@ -271,6 +237,7 @@ export const CreateRideSchema = createInsertSchema(ride, {
   totalSeats: z.number().int().min(1).max(10).optional(),
   pricePerSeat: z.number().int().min(0).optional(),
   description: z.string().max(1000).optional(),
+  routePolyline: z.string().optional(),
 }).omit({
   id: true,
   driverId: true,

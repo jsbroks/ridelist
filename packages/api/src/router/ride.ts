@@ -1,54 +1,114 @@
 import type { TRPCRouterRecord } from "@trpc/server";
+import { decode } from "@googlemaps/polyline-codec";
+import * as turf from "@turf/turf";
 import { z } from "zod/v4";
 
-import { and, desc, eq, gte } from "@app/db";
-import { CreateRideSchema, ride, rideStop } from "@app/db/schema";
+import { and, asc, desc, eq, gte } from "@app/db";
+import { CreateRideSchema, ride } from "@app/db/schema";
 
 import { protectedProcedure, publicProcedure } from "../trpc";
 
-// Schema for creating stops along with a ride
-const CreateRideStopSchema = z.object({
-  placeId: z.string().min(1),
-  name: z.string().min(1).max(256),
-  address: z.string().optional(),
-  lat: z.number(),
-  lng: z.number(),
-});
-
-const CreateRideWithStopsSchema = CreateRideSchema.extend({
-  stops: z.array(CreateRideStopSchema).optional(),
-});
+/**
+ * Calculate distance from a point to a decoded polyline route
+ * Returns distance in kilometers
+ */
+function getDistanceToRoute(
+  lat: number,
+  lng: number,
+  routePolyline: string,
+): number {
+  const decoded = decode(routePolyline);
+  // Turf expects [lng, lat] format (GeoJSON standard)
+  const line = turf.lineString(decoded.map(([pLat, pLng]) => [pLng, pLat]));
+  const point = turf.point([lng, lat]);
+  return turf.pointToLineDistance(point, line, { units: "kilometers" });
+}
 
 export const rideRouter = {
-  // Get all active rides (upcoming)
-  list: publicProcedure
+  // Search for rides along a route (finds rides passing near pickup/dropoff locations)
+  search: publicProcedure
     .input(
-      z
-        .object({
-          fromPlaceId: z.string().optional(),
-          toPlaceId: z.string().optional(),
-          limit: z.number().min(1).max(50).default(20),
-        })
-        .optional(),
+      z.object({
+        // User's pickup location
+        pickupLat: z.number(),
+        pickupLng: z.number(),
+        // User's dropoff location (optional)
+        dropoffLat: z.number().optional(),
+        dropoffLng: z.number().optional(),
+        // Search radius in kilometers
+        radiusKm: z.number().min(1).max(50).default(15),
+        // Date filter (only show rides on or after this date)
+        date: z.coerce.date().optional(),
+        // Max results
+        limit: z.number().min(1).max(50).default(20),
+      }),
     )
-    .query(({ ctx, input }) => {
-      const now = new Date();
-      return ctx.db.query.ride.findMany({
+    .query(async ({ ctx, input }) => {
+      const searchDate = input.date ?? new Date();
+
+      // Fetch active rides with polylines
+      const rides = await ctx.db.query.ride.findMany({
         where: and(
           eq(ride.status, "active"),
-          gte(ride.departureTime, now),
-          input?.fromPlaceId
-            ? eq(ride.fromPlaceId, input.fromPlaceId)
-            : undefined,
-          input?.toPlaceId ? eq(ride.toPlaceId, input.toPlaceId) : undefined,
+          gte(ride.departureTime, searchDate),
         ),
-        orderBy: desc(ride.departureTime),
-        limit: input?.limit ?? 20,
+        orderBy: asc(ride.departureTime),
         with: {
           driver: true,
-          stops: true,
         },
       });
+
+      // Filter rides by proximity to the route using Turf.js
+      const ridesWithPolyline = rides.filter(
+        (r): r is typeof r & { routePolyline: string } => !!r.routePolyline,
+      );
+
+      const matchingRides = ridesWithPolyline
+        .map((r) => {
+          const pickupDistance = getDistanceToRoute(
+            input.pickupLat,
+            input.pickupLng,
+            r.routePolyline,
+          );
+
+          // Calculate dropoff distance if provided
+          let dropoffDistance: number | undefined;
+          if (
+            input.dropoffLat !== undefined &&
+            input.dropoffLng !== undefined
+          ) {
+            dropoffDistance = getDistanceToRoute(
+              input.dropoffLat,
+              input.dropoffLng,
+              r.routePolyline,
+            );
+          }
+
+          return {
+            ...r,
+            pickupDistanceKm: Math.round(pickupDistance * 10) / 10,
+            dropoffDistanceKm: dropoffDistance
+              ? Math.round(dropoffDistance * 10) / 10
+              : undefined,
+          };
+        })
+        .filter(({ pickupDistanceKm, dropoffDistanceKm }) => {
+          // Pickup must be within radius
+          if (pickupDistanceKm > input.radiusKm) return false;
+          // If dropoff specified, it must also be within radius
+          if (
+            dropoffDistanceKm !== undefined &&
+            dropoffDistanceKm > input.radiusKm
+          ) {
+            return false;
+          }
+          return true;
+        })
+        // Sort by closest pickup distance
+        .sort((a, b) => a.pickupDistanceKm - b.pickupDistanceKm)
+        .slice(0, input.limit);
+
+      return matchingRides;
     }),
 
   // Get a single ride by ID
@@ -59,9 +119,6 @@ export const rideRouter = {
         where: eq(ride.id, input.id),
         with: {
           driver: true,
-          stops: {
-            orderBy: (stops, { asc }) => [asc(stops.orderIndex)],
-          },
           requests: true,
         },
       });
@@ -73,7 +130,6 @@ export const rideRouter = {
       where: eq(ride.driverId, ctx.session.user.id),
       orderBy: desc(ride.departureTime),
       with: {
-        stops: true,
         requests: {
           with: {
             passenger: true,
@@ -85,9 +141,9 @@ export const rideRouter = {
 
   // Create a new ride
   create: protectedProcedure
-    .input(CreateRideWithStopsSchema)
+    .input(CreateRideSchema)
     .mutation(async ({ ctx, input }) => {
-      const { stops, ...rideData } = input;
+      const { ...rideData } = input;
 
       // Insert the ride
       const [newRide] = await ctx.db
@@ -101,21 +157,6 @@ export const rideRouter = {
 
       if (!newRide) {
         throw new Error("Failed to create ride");
-      }
-
-      // Insert stops if provided
-      if (stops && stops.length > 0) {
-        await ctx.db.insert(rideStop).values(
-          stops.map((stop, index) => ({
-            rideId: newRide.id,
-            placeId: stop.placeId,
-            name: stop.name,
-            address: stop.address,
-            lat: stop.lat,
-            lng: stop.lng,
-            orderIndex: index,
-          })),
-        );
       }
 
       return newRide;

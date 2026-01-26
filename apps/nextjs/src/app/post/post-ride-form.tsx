@@ -4,142 +4,209 @@ import type React from "react";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
+import { useForm, useWatch } from "react-hook-form";
 
 import { Separator } from "@app/ui/separator";
+import { toast } from "@app/ui/toast";
 
 import type { PlacePrediction } from "~/app/_components/location-picker";
-import type { RouteInfo, TownSuggestion } from "~/app/_components/route-map";
+import type { RouteInfo } from "~/app/_components/route-map";
 import { Navbar } from "~/app/_components/navbar";
 import { RouteMap } from "~/app/_components/route-map";
+import { useTRPC } from "~/trpc/react";
 import {
   AdditionalInfoSection,
   DateTimeSection,
   FormSubmit,
   RouteSection,
   SeatsPriceSection,
-  StopsSection,
   TripPreferencesSection,
 } from "./_components";
 
+// Form data interface
+interface PostRideFormData {
+  // Route
+  fromLocation: PlacePrediction | null;
+  toLocation: PlacePrediction | null;
+
+  // Date & Time
+  date: Date | undefined;
+  departureTime: string;
+  isRoundTrip: boolean;
+  returnDate: Date | undefined;
+  returnTime: string;
+
+  // Seats & Price
+  seats: string;
+  price: string;
+
+  // Preferences
+  luggageSize: string;
+  hasWinterTires: boolean;
+  allowsBikes: boolean;
+  allowsSkis: boolean;
+  allowsPets: boolean;
+
+  // Additional
+  notes: string;
+}
+
 interface PostRideFormProps {
   googleMapsApiKey: string | undefined;
+}
+
+// Helper to parse duration string like "5 hours 30 mins" into minutes
+function parseDurationToMinutes(duration: string): number | undefined {
+  const hoursMatch = /(\d+)\s*(?:hour|hr|h)/i.exec(duration);
+  const minsMatch = /(\d+)\s*(?:min|m)/i.exec(duration);
+
+  const hours = hoursMatch ? parseInt(hoursMatch[1] ?? "0") : 0;
+  const mins = minsMatch ? parseInt(minsMatch[1] ?? "0") : 0;
+
+  const total = hours * 60 + mins;
+  return total > 0 ? total : undefined;
+}
+
+// Combine date and time into a single Date object
+function combineDateAndTime(dateValue: Date, timeString: string): Date {
+  const [hours, minutes] = timeString.split(":").map(Number);
+  const combined = new Date(dateValue);
+  combined.setHours(hours ?? 0, minutes ?? 0, 0, 0);
+  return combined;
 }
 
 export const PostRideForm: React.FC<PostRideFormProps> = ({
   googleMapsApiKey,
 }) => {
   const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
 
-  // Form state
-  const [fromLocation, setFromLocation] = useState<PlacePrediction | null>(
-    null,
+  // React Hook Form
+  const { control, setValue, handleSubmit } = useForm<PostRideFormData>({
+    defaultValues: {
+      fromLocation: null,
+      toLocation: null,
+      date: undefined,
+      departureTime: "",
+      isRoundTrip: false,
+      returnDate: undefined,
+      returnTime: "",
+      seats: "1",
+      price: "",
+      luggageSize: "medium",
+      hasWinterTires: false,
+      allowsBikes: false,
+      allowsSkis: false,
+      allowsPets: false,
+      notes: "",
+    },
+  });
+
+  // Watch form values for controlled components using useWatch hook
+  const fromLocation = useWatch({ control, name: "fromLocation" });
+  const toLocation = useWatch({ control, name: "toLocation" });
+  const date = useWatch({ control, name: "date" });
+  const departureTime = useWatch({ control, name: "departureTime" });
+  const isRoundTrip = useWatch({ control, name: "isRoundTrip" });
+  const returnDate = useWatch({ control, name: "returnDate" });
+  const returnTime = useWatch({ control, name: "returnTime" });
+  const seats = useWatch({ control, name: "seats" });
+  const price = useWatch({ control, name: "price" });
+  const luggageSize = useWatch({ control, name: "luggageSize" });
+  const hasWinterTires = useWatch({ control, name: "hasWinterTires" });
+  const allowsBikes = useWatch({ control, name: "allowsBikes" });
+  const allowsSkis = useWatch({ control, name: "allowsSkis" });
+  const allowsPets = useWatch({ control, name: "allowsPets" });
+  const notes = useWatch({ control, name: "notes" });
+
+  // tRPC mutation for creating a ride
+  const createRideMutation = useMutation(
+    trpc.ride.create.mutationOptions({
+      onSuccess: (data) => {
+        toast.success("Ride posted successfully!");
+        void queryClient.invalidateQueries();
+        router.push(`/ride/${data.id}`);
+      },
+      onError: (error) => {
+        toast.error(error.message);
+      },
+    }),
   );
-  const [toLocation, setToLocation] = useState<PlacePrediction | null>(null);
-  const [date, setDate] = useState<Date | undefined>(undefined);
-  const [departureTime, setDepartureTime] = useState("");
-  const [isRoundTrip, setIsRoundTrip] = useState(false);
-  const [returnDate, setReturnDate] = useState<Date | undefined>(undefined);
-  const [returnTime, setReturnTime] = useState("");
-  const [seats, setSeats] = useState("1");
-  const [price, setPrice] = useState("");
-  const [luggageSize, setLuggageSize] = useState("medium");
-  const [hasWinterTires, setHasWinterTires] = useState(false);
-  const [allowsBikes, setAllowsBikes] = useState(false);
-  const [allowsSkis, setAllowsSkis] = useState(false);
-  const [allowsPets, setAllowsPets] = useState(false);
-  const [notes, setNotes] = useState("");
+
+  // UI state for calendar popovers
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [returnCalendarOpen, setReturnCalendarOpen] = useState(false);
 
-  // Route and stops state
+  // Route info state (from map component)
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
-  const [townSuggestions, setTownSuggestions] = useState<TownSuggestion[]>([]);
-  const [stops, setStops] = useState<TownSuggestion[]>([]);
-  const [hasAutoPopulatedStops, setHasAutoPopulatedStops] = useState(false);
-  const [isAddingStop, setIsAddingStop] = useState(false);
-  const [manualStopInput, setManualStopInput] =
-    useState<PlacePrediction | null>(null);
 
-  // Handle route info changes
-  const handleRouteInfoChange = (info: RouteInfo | null) => {
-    setRouteInfo(info);
-    if (!info) {
-      setHasAutoPopulatedStops(false);
-      setStops([]);
-    }
-  };
-
-  // Handle town suggestions changes and auto-populate stops
-  const handleTownSuggestionsChange = (towns: TownSuggestion[]) => {
-    setTownSuggestions(towns);
-
-    if (
-      routeInfo &&
-      routeInfo.distanceKm > 50 &&
-      !hasAutoPopulatedStops &&
-      towns.length > 0
-    ) {
-      setStops(towns);
-      setHasAutoPopulatedStops(true);
-    }
-  };
-
-  // Stop management handlers
-  const addStop = (town: TownSuggestion) => {
-    if (!stops.some((s) => s.placeId === town.placeId)) {
-      setStops([...stops, town]);
-    }
-  };
-
-  const handleManualStopChange = (place: PlacePrediction | null) => {
-    setManualStopInput(place);
-    if (place && !stops.some((s) => s.placeId === place.placeId)) {
-      setStops([...stops, { name: place.mainText, placeId: place.placeId }]);
-      setManualStopInput(null);
-      setIsAddingStop(false);
-    }
-  };
-
-  const removeStop = (placeId: string) => {
-    setStops(stops.filter((s) => s.placeId !== placeId));
+  // Fetch place details using tRPC
+  const fetchPlaceDetails = async (placeId: string) => {
+    return queryClient.fetchQuery(
+      trpc.places.getDetails.queryOptions({ placeId }),
+    );
   };
 
   const canSubmit =
     fromLocation && toLocation && date && departureTime && price;
+  const isSubmitting = createRideMutation.isPending;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canSubmit) return;
+  const onSubmit = async (data: PostRideFormData) => {
+    if (!data.fromLocation || !data.toLocation || !data.date) return;
 
-    setIsSubmitting(true);
+    try {
+      // Fetch location details for from and to
+      const [fromDetails, toDetails] = await Promise.all([
+        fetchPlaceDetails(data.fromLocation.placeId),
+        fetchPlaceDetails(data.toLocation.placeId),
+      ]);
 
-    console.log("Posting ride:", {
-      from: fromLocation,
-      to: toLocation,
-      stops: stops.map((s) => ({ name: s.name, placeId: s.placeId })),
-      date,
-      departureTime,
-      isRoundTrip,
-      returnDate: isRoundTrip ? returnDate : undefined,
-      returnTime: isRoundTrip ? returnTime : undefined,
-      seats: parseInt(seats),
-      price: parseFloat(price),
-      luggageSize,
-      preferences: {
-        winterTires: hasWinterTires,
-        bikes: allowsBikes,
-        skis: allowsSkis,
-        pets: allowsPets,
-      },
-      notes,
-      routeInfo,
-    });
+      if (!fromDetails.location || !toDetails.location) {
+        toast.error("Failed to get location coordinates. Please try again.");
+        return;
+      }
 
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsSubmitting(false);
-    router.push("/");
+      // Combine date and time
+      const departureDatetime = combineDateAndTime(
+        data.date,
+        data.departureTime,
+      );
+
+      // Convert price to cents
+      const priceInCents = Math.round(parseFloat(data.price) * 100);
+
+      // Parse duration from route info
+      const durationMinutes = routeInfo?.duration
+        ? parseDurationToMinutes(routeInfo.duration)
+        : undefined;
+
+      // Create the ride using tRPC mutation
+      createRideMutation.mutate({
+        fromPlaceId: data.fromLocation.placeId,
+        fromName: data.fromLocation.mainText,
+        fromAddress: fromDetails.formattedAddress ?? undefined,
+        fromLat: fromDetails.location.lat,
+        fromLng: fromDetails.location.lng,
+        toPlaceId: data.toLocation.placeId,
+        toName: data.toLocation.mainText,
+        toAddress: toDetails.formattedAddress ?? undefined,
+        toLat: toDetails.location.lat,
+        toLng: toDetails.location.lng,
+        departureTime: departureDatetime,
+        totalSeats: parseInt(data.seats),
+        pricePerSeat: priceInCents,
+        description: data.notes || undefined,
+        distanceKm: routeInfo?.distanceKm,
+        durationMinutes,
+        routePolyline: routeInfo?.polyline,
+      });
+    } catch (error) {
+      console.error("Error preparing ride data:", error);
+      toast.error("Failed to get location details. Please try again.");
+    }
   };
 
   return (
@@ -175,33 +242,17 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
           <div className="flex flex-col gap-8 lg:flex-row">
             {/* Form Column */}
             <div className="w-full lg:max-w-2xl">
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={handleSubmit(onSubmit)}>
                 <div className="space-y-10">
                   {/* Route Section */}
                   <RouteSection
                     fromLocation={fromLocation}
                     toLocation={toLocation}
-                    onFromLocationChange={setFromLocation}
-                    onToLocationChange={setToLocation}
-                  >
-                    {fromLocation && toLocation && (
-                      <StopsSection
-                        stops={stops}
-                        townSuggestions={townSuggestions}
-                        routeInfo={routeInfo}
-                        isAddingStop={isAddingStop}
-                        manualStopInput={manualStopInput}
-                        onAddStop={addStop}
-                        onRemoveStop={removeStop}
-                        onManualStopChange={handleManualStopChange}
-                        onStartAddingStop={() => setIsAddingStop(true)}
-                        onCancelAddingStop={() => {
-                          setIsAddingStop(false);
-                          setManualStopInput(null);
-                        }}
-                      />
-                    )}
-                  </RouteSection>
+                    onFromLocationChange={(loc) =>
+                      setValue("fromLocation", loc)
+                    }
+                    onToLocationChange={(loc) => setValue("toLocation", loc)}
+                  />
 
                   <Separator />
 
@@ -214,11 +265,11 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
                     returnTime={returnTime}
                     calendarOpen={calendarOpen}
                     returnCalendarOpen={returnCalendarOpen}
-                    onDateChange={setDate}
-                    onDepartureTimeChange={setDepartureTime}
-                    onRoundTripChange={setIsRoundTrip}
-                    onReturnDateChange={setReturnDate}
-                    onReturnTimeChange={setReturnTime}
+                    onDateChange={(d) => setValue("date", d)}
+                    onDepartureTimeChange={(t) => setValue("departureTime", t)}
+                    onRoundTripChange={(v) => setValue("isRoundTrip", v)}
+                    onReturnDateChange={(d) => setValue("returnDate", d)}
+                    onReturnTimeChange={(t) => setValue("returnTime", t)}
                     onCalendarOpenChange={setCalendarOpen}
                     onReturnCalendarOpenChange={setReturnCalendarOpen}
                   />
@@ -229,8 +280,8 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
                   <SeatsPriceSection
                     seats={seats}
                     price={price}
-                    onSeatsChange={setSeats}
-                    onPriceChange={setPrice}
+                    onSeatsChange={(s) => setValue("seats", s)}
+                    onPriceChange={(p) => setValue("price", p)}
                   />
 
                   <Separator />
@@ -244,11 +295,11 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
                       allowsSkis,
                       allowsPets,
                     }}
-                    onLuggageSizeChange={setLuggageSize}
-                    onWinterTiresChange={setHasWinterTires}
-                    onBikesChange={setAllowsBikes}
-                    onSkisChange={setAllowsSkis}
-                    onPetsChange={setAllowsPets}
+                    onLuggageSizeChange={(s) => setValue("luggageSize", s)}
+                    onWinterTiresChange={(v) => setValue("hasWinterTires", v)}
+                    onBikesChange={(v) => setValue("allowsBikes", v)}
+                    onSkisChange={(v) => setValue("allowsSkis", v)}
+                    onPetsChange={(v) => setValue("allowsPets", v)}
                   />
 
                   <Separator />
@@ -256,7 +307,7 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
                   {/* Additional Info Section */}
                   <AdditionalInfoSection
                     notes={notes}
-                    onNotesChange={setNotes}
+                    onNotesChange={(n) => setValue("notes", n)}
                   />
 
                   <Separator />
@@ -279,9 +330,7 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
                   toPlaceId={toLocation?.placeId ?? null}
                   fromName={fromLocation?.mainText}
                   toName={toLocation?.mainText}
-                  stops={stops}
-                  onRouteInfoChange={handleRouteInfoChange}
-                  onTownSuggestionsChange={handleTownSuggestionsChange}
+                  onRouteInfoChange={setRouteInfo}
                 />
               </div>
             </div>
