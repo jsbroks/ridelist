@@ -3,7 +3,7 @@
 import type React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogIn, LogOut, Settings, User } from "lucide-react";
+import { Car, LogIn, LogOut, MessageSquare, Settings, User } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@app/ui/avatar";
 import { Button } from "@app/ui/button";
@@ -83,6 +83,18 @@ export const UserMenu: React.FC = () => {
           <Link href="/profile" className="cursor-pointer">
             <User className="mr-2 size-4" />
             Profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/messages" className="cursor-pointer">
+            <MessageSquare className="mr-2 size-4" />
+            Messages
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/my-requests" className="cursor-pointer">
+            <Car className="mr-2 size-4" />
+            My Requests
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>

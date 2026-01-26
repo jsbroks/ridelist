@@ -159,13 +159,17 @@ function UserRouteRenderer({
 
 function MapContent({
   driverRoute,
+  fromName,
+  toName,
   userPickupPlaceId,
   userDropoffPlaceId,
+  userPickupName,
+  userDropoffName,
 }: Omit<RideComparisonMapProps, "apiKey">) {
   const hasUserRoute = userPickupPlaceId && userDropoffPlaceId;
 
   return (
-    <div className="h-full w-full">
+    <div className="relative h-full w-full overflow-hidden rounded-xl">
       <Map
         defaultCenter={CANADA_CENTER}
         defaultZoom={DEFAULT_ZOOM}
@@ -184,6 +188,30 @@ function MapContent({
           />
         )}
       </Map>
+
+      {/* Route Legend Overlay */}
+      <div className="absolute top-4 right-4 left-4 z-10">
+        <div className="bg-card/95 rounded-lg border p-3 shadow-lg backdrop-blur-sm">
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="h-1 w-5 rounded-full bg-[#ef4444]" />
+              <span className="text-muted-foreground">Driver&apos;s route:</span>
+              <span className="truncate font-medium">
+                {fromName} → {toName}
+              </span>
+            </div>
+            {hasUserRoute && (
+              <div className="flex items-center gap-2">
+                <div className="h-1 w-5 rounded-full bg-[#3b82f6]" />
+                <span className="text-muted-foreground">Your route:</span>
+                <span className="truncate font-medium">
+                  {userPickupName ?? "Pickup"} → {userDropoffName ?? "Dropoff"}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -194,7 +222,7 @@ export function RideComparisonMap({
 }: RideComparisonMapProps) {
   if (!apiKey) {
     return (
-      <div className="flex h-full w-full items-center justify-center">
+      <div className="bg-muted/50 flex h-full w-full items-center justify-center rounded-xl border">
         <div className="text-center">
           <MapPin className="text-muted-foreground mx-auto mb-2 size-8" />
           <p className="text-muted-foreground text-sm">Map unavailable</p>

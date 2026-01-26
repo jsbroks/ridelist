@@ -4,7 +4,18 @@ import type React from "react";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogIn, LogOut, Menu, Plus, Search, Settings, User, X } from "lucide-react";
+import {
+  Car,
+  LogIn,
+  LogOut,
+  Menu,
+  MessageSquare,
+  Plus,
+  Search,
+  Settings,
+  User,
+  X,
+} from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@app/ui/avatar";
 
@@ -160,6 +171,20 @@ export const MobileMenu: React.FC = () => {
                   onClick={closeMenu}
                 >
                   Profile
+                </MobileMenuLink>
+                <MobileMenuLink
+                  href="/messages"
+                  icon={<MessageSquare className="text-primary size-5" />}
+                  onClick={closeMenu}
+                >
+                  Messages
+                </MobileMenuLink>
+                <MobileMenuLink
+                  href="/my-requests"
+                  icon={<Car className="text-primary size-5" />}
+                  onClick={closeMenu}
+                >
+                  My Requests
                 </MobileMenuLink>
                 <MobileMenuLink
                   href="/settings"
