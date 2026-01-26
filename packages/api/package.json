@@ -21,16 +21,17 @@
     "@app/auth": "workspace:*",
     "@app/db": "workspace:*",
     "@app/validators": "workspace:*",
-    "@googlemaps/polyline-codec": "^1.0.28",
     "@trpc/server": "catalog:",
     "@turf/turf": "^7.3.2",
     "superjson": "2.2.3",
+    "ts-is-present": "^1.2.2",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@app/eslint-config": "workspace:*",
     "@app/prettier-config": "workspace:*",
     "@app/tsconfig": "workspace:*",
+    "@types/geojson": "^7946.0.16",
     "eslint": "catalog:",
     "prettier": "catalog:",
     "typescript": "catalog:"

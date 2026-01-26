@@ -26,7 +26,8 @@
     "push": "pnpm with-env drizzle-kit push",
     "studio": "pnpm with-env drizzle-kit studio",
     "typecheck": "tsc --noEmit --emitDeclarationOnly false",
-    "with-env": "dotenv -e ../../.env --"
+    "with-env": "dotenv -e ../../.env --",
+    "generate:custom": "pnpm with-env drizzle-kit generate --custom"
   },
   "dependencies": {
     "drizzle-orm": "^0.44.7",
@@ -39,6 +40,7 @@
     "@app/eslint-config": "workspace:*",
     "@app/prettier-config": "workspace:*",
     "@app/tsconfig": "workspace:*",
+    "@types/geojson": "^7946.0.16",
     "@types/node": "catalog:",
     "@types/pg": "^8.16.0",
     "drizzle-kit": "^0.31.8",

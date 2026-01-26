@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { decode } from "@googlemaps/polyline-codec";
 import {
   AdvancedMarker,
   APIProvider,
@@ -18,7 +19,7 @@ export interface RouteInfo {
   distance: string;
   duration: string;
   distanceKm: number;
-  polyline: string; // Encoded polyline from Google Directions
+  geometry: GeoJSON.LineString; // GeoJSON LineString for the route
 }
 
 interface RouteMapProps {
@@ -203,12 +204,20 @@ function DirectionsRenderer({
           });
         }
 
-        if (leg) {
+        if (leg && route?.overview_polyline) {
+          // Decode Google's polyline and convert to GeoJSON LineString
+          const decoded = decode(route.overview_polyline);
+          const geometry: GeoJSON.LineString = {
+            type: "LineString",
+            // Convert from [lat, lng] to GeoJSON [lng, lat] format
+            coordinates: decoded.map(([lat, lng]) => [lng, lat]),
+          };
+
           const info: RouteInfo = {
             distance: leg.distance?.text ?? "",
             duration: leg.duration?.text ?? "",
             distanceKm,
-            polyline: route?.overview_polyline ?? "",
+            geometry,
           };
           setRouteInfo(info);
           onRouteInfoChangeRef.current?.(info);

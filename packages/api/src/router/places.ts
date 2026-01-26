@@ -1,5 +1,6 @@
 import type { TRPCRouterRecord } from "@trpc/server";
 import { TRPCError } from "@trpc/server";
+import { isPresent } from "ts-is-present";
 import { z } from "zod/v4";
 
 import { publicProcedure } from "../trpc";
@@ -110,7 +111,7 @@ export const placesRouter = {
 
       const predictions = (data.suggestions ?? [])
         .map((s) => s.placePrediction)
-        .filter((p): p is PlacePrediction => p !== undefined);
+        .filter(isPresent);
 
       return {
         predictions: predictions.map((prediction) => ({

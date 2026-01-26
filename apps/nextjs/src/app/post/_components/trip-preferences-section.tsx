@@ -2,7 +2,7 @@
 
 import type React from "react";
 import type { LucideIcon } from "lucide-react";
-import { Bike, Luggage, PawPrint, Snowflake } from "lucide-react";
+import { Bike, Luggage, PawPrint, Snowflake, Zap } from "lucide-react";
 
 import { Checkbox } from "@app/ui/checkbox";
 import { Label } from "@app/ui/label";
@@ -81,6 +81,8 @@ interface TripPreferences {
   allowsBikes: boolean;
   allowsSkis: boolean;
   allowsPets: boolean;
+  hasAC: boolean;
+  hasPhoneCharging: boolean;
 }
 
 interface TripPreferencesSectionProps {
@@ -90,6 +92,8 @@ interface TripPreferencesSectionProps {
   onBikesChange: (value: boolean) => void;
   onSkisChange: (value: boolean) => void;
   onPetsChange: (value: boolean) => void;
+  onACChange: (value: boolean) => void;
+  onPhoneChargingChange: (value: boolean) => void;
 }
 
 export const TripPreferencesSection: React.FC<TripPreferencesSectionProps> = ({
@@ -99,6 +103,8 @@ export const TripPreferencesSection: React.FC<TripPreferencesSectionProps> = ({
   onBikesChange,
   onSkisChange,
   onPetsChange,
+  onACChange,
+  onPhoneChargingChange,
 }) => {
   return (
     <section>
@@ -162,6 +168,20 @@ export const TripPreferencesSection: React.FC<TripPreferencesSectionProps> = ({
               checked={preferences.allowsPets}
               onCheckedChange={onPetsChange}
               Icon={PawPrint}
+            />
+            <PreferenceCheckbox
+              id="ac"
+              label="A/C"
+              checked={preferences.hasAC}
+              onCheckedChange={onACChange}
+              Icon={Snowflake}
+            />
+            <PreferenceCheckbox
+              id="phone-charging"
+              label="Phone charging"
+              checked={preferences.hasPhoneCharging}
+              onCheckedChange={onPhoneChargingChange}
+              Icon={Zap}
             />
           </div>
         </div>

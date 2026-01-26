@@ -1,27 +1,42 @@
 import type { TRPCRouterRecord } from "@trpc/server";
-import { decode } from "@googlemaps/polyline-codec";
 import * as turf from "@turf/turf";
 import { z } from "zod/v4";
 
-import { and, asc, desc, eq, gte } from "@app/db";
+import { and, asc, desc, eq, gte, lte, or } from "@app/db";
 import { CreateRideSchema, ride } from "@app/db/schema";
 
 import { protectedProcedure, publicProcedure } from "../trpc";
 
+const latLng = z.object({
+  lat: z.number(),
+  lng: z.number(),
+});
+
+// Pre-filter radius in degrees (~100km)
+// 1 degree latitude ≈ 111km, so 100km ≈ 0.9 degrees
+const PREFILTER_DEGREES = 0.9;
+
 /**
- * Calculate distance from a point to a decoded polyline route
- * Returns distance in kilometers
+ * Check if a point is within ~100km of either the ride's start or end point
+ * This is a rough bounding box filter to reduce results before expensive Turf.js calculations
  */
-function getDistanceToRoute(
-  lat: number,
-  lng: number,
-  routePolyline: string,
-): number {
-  const decoded = decode(routePolyline);
-  // Turf expects [lng, lat] format (GeoJSON standard)
-  const line = turf.lineString(decoded.map(([pLat, pLng]) => [pLng, pLat]));
-  const point = turf.point([lng, lat]);
-  return turf.pointToLineDistance(point, line, { units: "kilometers" });
+function isPointNearEndpoints(pointLat: number, pointLng: number) {
+  return or(
+    // Near start point
+    and(
+      gte(ride.fromLat, pointLat - PREFILTER_DEGREES),
+      lte(ride.fromLat, pointLat + PREFILTER_DEGREES),
+      gte(ride.fromLng, pointLng - PREFILTER_DEGREES),
+      lte(ride.fromLng, pointLng + PREFILTER_DEGREES),
+    ),
+    // Near end point
+    and(
+      gte(ride.toLat, pointLat - PREFILTER_DEGREES),
+      lte(ride.toLat, pointLat + PREFILTER_DEGREES),
+      gte(ride.toLng, pointLng - PREFILTER_DEGREES),
+      lte(ride.toLng, pointLng + PREFILTER_DEGREES),
+    ),
+  );
 }
 
 export const rideRouter = {
@@ -30,13 +45,11 @@ export const rideRouter = {
     .input(
       z.object({
         // User's pickup location
-        pickupLat: z.number(),
-        pickupLng: z.number(),
+        pickup: latLng,
         // User's dropoff location (optional)
-        dropoffLat: z.number().optional(),
-        dropoffLng: z.number().optional(),
+        dropoff: latLng,
         // Search radius in kilometers
-        radiusKm: z.number().min(1).max(50).default(15),
+        radiusKm: z.number().min(1).max(50).default(10),
         // Date filter (only show rides on or after this date)
         date: z.coerce.date().optional(),
         // Max results
@@ -46,64 +59,72 @@ export const rideRouter = {
     .query(async ({ ctx, input }) => {
       const searchDate = input.date ?? new Date();
 
-      // Fetch active rides with polylines
+      // Fetch active rides, pre-filtered by bounding box around endpoints
+      // This reduces the dataset before expensive Turf.js calculations
       const rides = await ctx.db.query.ride.findMany({
         where: and(
           eq(ride.status, "active"),
           gte(ride.departureTime, searchDate),
+          // Pickup must be within ~100km of ride's start or end
+          isPointNearEndpoints(input.pickup.lat, input.pickup.lng),
+          // Dropoff must be within ~100km of ride's start or end
+          isPointNearEndpoints(input.dropoff.lat, input.dropoff.lng),
         ),
         orderBy: asc(ride.departureTime),
-        with: {
-          driver: true,
-        },
+        with: { driver: true },
       });
 
-      // Filter rides by proximity to the route using Turf.js
-      const ridesWithPolyline = rides.filter(
-        (r): r is typeof r & { routePolyline: string } => !!r.routePolyline,
-      );
-
-      const matchingRides = ridesWithPolyline
+      // Filter rides by proximity to the route and direction using Turf.js
+      const matchingRides = rides
         .map((r) => {
-          const pickupDistance = getDistanceToRoute(
-            input.pickupLat,
-            input.pickupLng,
-            r.routePolyline,
-          );
+          const line = turf.lineString(r.routeGeometry.coordinates);
+          const pickupPoint = turf.point([input.pickup.lng, input.pickup.lat]);
+          const dropoffPoint = turf.point([
+            input.dropoff.lng,
+            input.dropoff.lat,
+          ]);
 
-          // Calculate dropoff distance if provided
-          let dropoffDistance: number | undefined;
-          if (
-            input.dropoffLat !== undefined &&
-            input.dropoffLng !== undefined
-          ) {
-            dropoffDistance = getDistanceToRoute(
-              input.dropoffLat,
-              input.dropoffLng,
-              r.routePolyline,
-            );
-          }
+          // Find nearest points on the route and their distances
+          const pickupNearest = turf.nearestPointOnLine(line, pickupPoint, {
+            units: "kilometers",
+          });
+          const dropoffNearest = turf.nearestPointOnLine(line, dropoffPoint, {
+            units: "kilometers",
+          });
+
+          // Distance from route (perpendicular)
+          const pickupDistanceKm =
+            Math.round(pickupNearest.properties.dist * 10) / 10;
+          const dropoffDistanceKm =
+            Math.round(dropoffNearest.properties.dist * 10) / 10;
+
+          // Position along the route (from start)
+          const pickupAlongRouteKm = pickupNearest.properties.location;
+          const dropoffAlongRouteKm = dropoffNearest.properties.location;
 
           return {
             ...r,
-            pickupDistanceKm: Math.round(pickupDistance * 10) / 10,
-            dropoffDistanceKm: dropoffDistance
-              ? Math.round(dropoffDistance * 10) / 10
-              : undefined,
+            pickupDistanceKm,
+            dropoffDistanceKm,
+            pickupAlongRouteKm,
+            dropoffAlongRouteKm,
           };
         })
-        .filter(({ pickupDistanceKm, dropoffDistanceKm }) => {
-          // Pickup must be within radius
-          if (pickupDistanceKm > input.radiusKm) return false;
-          // If dropoff specified, it must also be within radius
-          if (
-            dropoffDistanceKm !== undefined &&
-            dropoffDistanceKm > input.radiusKm
-          ) {
-            return false;
-          }
-          return true;
-        })
+        .filter(
+          ({
+            pickupDistanceKm,
+            dropoffDistanceKm,
+            pickupAlongRouteKm,
+            dropoffAlongRouteKm,
+          }) => {
+            // Both pickup and dropoff must be within radius
+            if (pickupDistanceKm > input.radiusKm) return false;
+            if (dropoffDistanceKm > input.radiusKm) return false;
+            // Pickup must come before dropoff along the route (same direction)
+            if (pickupAlongRouteKm >= dropoffAlongRouteKm) return false;
+            return true;
+          },
+        )
         // Sort by closest pickup distance
         .sort((a, b) => a.pickupDistanceKm - b.pickupDistanceKm)
         .slice(0, input.limit);

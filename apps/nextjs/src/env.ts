@@ -5,7 +5,7 @@ import { z } from "zod/v4";
 import { authEnv } from "@app/auth/env";
 
 export const env = createEnv({
-  extends: [authEnv(), vercel()],
+  extends: [authEnv()],
   shared: {
     NODE_ENV: z
       .enum(["development", "production", "test"])
@@ -18,6 +18,7 @@ export const env = createEnv({
   server: {
     POSTGRES_URL: z.url(),
     GOOGLE_MAPS_API_KEY: z.string().optional(),
+    BASE_URL: z.url(),
   },
 
   /**

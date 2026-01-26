@@ -130,15 +130,9 @@ export const DateTimeSection: React.FC<DateTimeSectionProps> = ({
 }) => {
   return (
     <section>
-      <div className="mb-6 flex items-center gap-3">
-        <CalendarIcon className="text-primary size-5" />
-        <h2 className="font-semibold">Date & Time</h2>
-      </div>
-
       <div className="space-y-6">
         {/* Departure */}
         <div>
-          <p className="text-muted-foreground mb-3 text-sm">Departure</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <DatePicker
               id="date"

@@ -60,11 +60,17 @@ export const SeatsPriceSection: React.FC<SeatsPriceSectionProps> = ({
             <Input
               id="price"
               type="number"
+              inputMode="numeric"
+              pattern="[0-9]*"
               min="0"
-              step="5"
+              step="1"
               placeholder="0"
               value={price}
-              onChange={(e) => onPriceChange(e.target.value)}
+              onChange={(e) => {
+                // Only allow whole numbers
+                const value = e.target.value.replace(/[^0-9]/g, "");
+                onPriceChange(value);
+              }}
               className="h-10 pl-10"
             />
           </div>

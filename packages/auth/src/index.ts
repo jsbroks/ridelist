@@ -3,7 +3,7 @@ import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
 import { emailHarmony, phoneHarmony } from "better-auth-harmony";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { oAuthProxy, username } from "better-auth/plugins";
+import { username } from "better-auth/plugins";
 
 import { db } from "@app/db/client";
 
@@ -11,9 +11,7 @@ export function initAuth<
   TExtraPlugins extends BetterAuthPlugin[] = [],
 >(options: {
   baseUrl: string;
-  productionUrl: string;
   secret: string | undefined;
-
   googleClientId: string;
   googleClientSecret: string;
   extraPlugins?: TExtraPlugins;
@@ -25,9 +23,6 @@ export function initAuth<
     baseURL: options.baseUrl,
     secret: options.secret,
     plugins: [
-      oAuthProxy({
-        productionURL: options.productionUrl,
-      }),
       expo(),
       username(),
       emailHarmony(),

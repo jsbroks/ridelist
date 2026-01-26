@@ -3,13 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod/v4";
 
 import { and, avg, count, desc, eq, sql } from "@app/db";
-import {
-  CreateReviewSchema,
-  review,
-  ride,
-  rideRequest,
-  user,
-} from "@app/db/schema";
+import { CreateReviewSchema, review, ride, rideRequest } from "@app/db/schema";
 
 import { protectedProcedure, publicProcedure } from "../trpc";
 
@@ -378,14 +372,16 @@ export const reviewRouter = {
       if (isDriver && input.type !== "driver_to_passenger") {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "As the driver, you can only leave driver_to_passenger reviews",
+          message:
+            "As the driver, you can only leave driver_to_passenger reviews",
         });
       }
 
       if (isPassenger && !isDriver && input.type !== "passenger_to_driver") {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "As a passenger, you can only leave passenger_to_driver reviews",
+          message:
+            "As a passenger, you can only leave passenger_to_driver reviews",
         });
       }
 
@@ -515,14 +511,14 @@ export const reviewRouter = {
       },
     });
 
-    const pendingReviews: Array<{
+    const pendingReviews: {
       rideId: string;
       rideName: string;
       revieweeId: string;
       revieweeName: string;
       revieweeImage: string | null;
       type: "driver_to_passenger" | "passenger_to_driver";
-    }> = [];
+    }[] = [];
 
     // Check driver rides for unreviewed passengers
     for (const rideData of driverRides) {

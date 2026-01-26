@@ -48,6 +48,8 @@ interface PostRideFormData {
   allowsBikes: boolean;
   allowsSkis: boolean;
   allowsPets: boolean;
+  hasAC: boolean;
+  hasPhoneCharging: boolean;
 
   // Additional
   notes: string;
@@ -101,6 +103,8 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
       allowsBikes: false,
       allowsSkis: false,
       allowsPets: false,
+      hasAC: false,
+      hasPhoneCharging: false,
       notes: "",
     },
   });
@@ -120,6 +124,8 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
   const allowsBikes = useWatch({ control, name: "allowsBikes" });
   const allowsSkis = useWatch({ control, name: "allowsSkis" });
   const allowsPets = useWatch({ control, name: "allowsPets" });
+  const hasAC = useWatch({ control, name: "hasAC" });
+  const hasPhoneCharging = useWatch({ control, name: "hasPhoneCharging" });
   const notes = useWatch({ control, name: "notes" });
 
   // tRPC mutation for creating a ride
@@ -183,6 +189,10 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
         ? parseDurationToMinutes(routeInfo.duration)
         : undefined;
 
+      if (routeInfo?.geometry == null) {
+        toast.error("Failed to get route geometry. Please try again.");
+        return;
+      }
       // Create the ride using tRPC mutation
       createRideMutation.mutate({
         fromPlaceId: data.fromLocation.placeId,
@@ -199,9 +209,22 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
         totalSeats: parseInt(data.seats),
         pricePerSeat: priceInCents,
         description: data.notes || undefined,
-        distanceKm: routeInfo?.distanceKm,
+        distanceKm: routeInfo.distanceKm,
         durationMinutes,
-        routePolyline: routeInfo?.polyline,
+        routeGeometry: {
+          type: "LineString" as const,
+          coordinates: routeInfo.geometry.coordinates.map(
+            ([lng, lat]) => [lng, lat] as [number, number],
+          ),
+        },
+        // Preferences
+        luggageSize: data.luggageSize as "small" | "medium" | "large",
+        hasWinterTires: data.hasWinterTires,
+        allowsBikes: data.allowsBikes,
+        allowsSkis: data.allowsSkis,
+        allowsPets: data.allowsPets,
+        hasAC: data.hasAC,
+        hasPhoneCharging: data.hasPhoneCharging,
       });
     } catch (error) {
       console.error("Error preparing ride data:", error);
@@ -254,7 +277,7 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
                     onToLocationChange={(loc) => setValue("toLocation", loc)}
                   />
 
-                  <Separator />
+                  {/* <Separator /> */}
 
                   {/* Date & Time Section */}
                   <DateTimeSection
@@ -294,12 +317,18 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
                       allowsBikes,
                       allowsSkis,
                       allowsPets,
+                      hasAC,
+                      hasPhoneCharging,
                     }}
                     onLuggageSizeChange={(s) => setValue("luggageSize", s)}
                     onWinterTiresChange={(v) => setValue("hasWinterTires", v)}
                     onBikesChange={(v) => setValue("allowsBikes", v)}
                     onSkisChange={(v) => setValue("allowsSkis", v)}
                     onPetsChange={(v) => setValue("allowsPets", v)}
+                    onACChange={(v: boolean) => setValue("hasAC", v)}
+                    onPhoneChargingChange={(v: boolean) =>
+                      setValue("hasPhoneCharging", v)
+                    }
                   />
 
                   <Separator />
