@@ -253,7 +253,6 @@ export const driversRouteRouter = {
       z.object({
         driverRouteId: z.uuid(),
         departureTime: z.coerce.date(),
-        seatsAvailable: z.number().int().min(1).max(10).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {

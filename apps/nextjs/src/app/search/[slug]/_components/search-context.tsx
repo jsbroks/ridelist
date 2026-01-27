@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { createContext, useContext, useState } from "react";
 
-export interface HoveredRide {
+export interface HoveredTrip {
   id: string;
   routeGeometry: GeoJSON.LineString;
   fromName: string;
@@ -11,17 +11,17 @@ export interface HoveredRide {
 }
 
 interface SearchContextValue {
-  hoveredRide: HoveredRide | null;
-  setHoveredRide: (ride: HoveredRide | null) => void;
+  hoveredTrip: HoveredTrip | null;
+  setHoveredTrip: (trip: HoveredTrip | null) => void;
 }
 
 const SearchContext = createContext<SearchContextValue | null>(null);
 
 export function SearchProvider({ children }: { children: ReactNode }) {
-  const [hoveredRide, setHoveredRide] = useState<HoveredRide | null>(null);
+  const [hoveredTrip, setHoveredTrip] = useState<HoveredTrip | null>(null);
 
   return (
-    <SearchContext.Provider value={{ hoveredRide, setHoveredRide }}>
+    <SearchContext.Provider value={{ hoveredTrip, setHoveredTrip }}>
       {children}
     </SearchContext.Provider>
   );

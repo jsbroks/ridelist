@@ -29,7 +29,7 @@ interface SearchResultsProps {
   fromPlaceId: string | null;
   toPlaceId: string | null;
   date?: string | null;
-  searchType?: "rides" | "wanted";
+  mode?: "driver" | "passenger";
 }
 
 function getInitials(name: string | null | undefined): string {
@@ -42,17 +42,19 @@ function getInitials(name: string | null | undefined): string {
     .slice(0, 2);
 }
 
-interface SearchRideCardProps {
-  ride: {
+interface SearchTripCardProps {
+  trip: {
     id: string;
-    fromName: string;
-    toName: string;
     departureTime: Date;
-    availableSeats: number;
-    pricePerSeat: number | null;
+    seatsAvailable: number;
     pickupDistanceKm: number;
     dropoffDistanceKm: number;
-    routeGeometry: GeoJSON.LineString;
+    driverRoute: {
+      fromName: string;
+      toName: string;
+      pricePerSeat: number | null;
+      routeGeometry: GeoJSON.LineString;
+    };
     driver: {
       id: string;
       name: string;
@@ -63,26 +65,27 @@ interface SearchRideCardProps {
   toPlaceId: string;
 }
 
-function SearchRideCard({ ride, fromPlaceId, toPlaceId }: SearchRideCardProps) {
-  const departureDate = new Date(ride.departureTime);
-  const { setHoveredRide } = useSearchContext();
+function SearchTripCard({ trip, fromPlaceId, toPlaceId }: SearchTripCardProps) {
+  const departureDate = new Date(trip.departureTime);
+  const { setHoveredTrip } = useSearchContext();
 
   const handleMouseEnter = () => {
-    setHoveredRide({
-      id: ride.id,
-      routeGeometry: ride.routeGeometry,
-      fromName: ride.fromName,
-      toName: ride.toName,
+    const { driverRoute, id } = trip;
+    setHoveredTrip({
+      id,
+      routeGeometry: driverRoute.routeGeometry,
+      fromName: driverRoute.fromName,
+      toName: driverRoute.toName,
     });
   };
 
   const handleMouseLeave = () => {
-    setHoveredRide(null);
+    setHoveredTrip(null);
   };
 
   return (
     <Link
-      href={`/ride/${ride.id}?pickup=${fromPlaceId}&dropoff=${toPlaceId}`}
+      href={`/ride/${trip.id}?pickup=${fromPlaceId}&dropoff=${toPlaceId}`}
       className="block"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -93,13 +96,13 @@ function SearchRideCard({ ride, fromPlaceId, toPlaceId }: SearchRideCardProps) {
           <div className="flex items-center gap-3">
             <Avatar className="size-12">
               <AvatarImage
-                src={ride.driver.image ?? undefined}
-                alt={ride.driver.name}
+                src={trip.driver.image ?? undefined}
+                alt={trip.driver.name}
               />
-              <AvatarFallback>{getInitials(ride.driver.name)}</AvatarFallback>
+              <AvatarFallback>{getInitials(trip.driver.name)}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-medium">{ride.driver.name}</p>
+              <p className="font-medium">{trip.driver.name}</p>
               <div className="text-muted-foreground flex items-center gap-1 text-sm">
                 <Star className="size-3 fill-yellow-400 text-yellow-400" />
                 <span>New driver</span>
@@ -108,7 +111,7 @@ function SearchRideCard({ ride, fromPlaceId, toPlaceId }: SearchRideCardProps) {
           </div>
           <div className="text-right">
             <p className="text-xl font-bold">
-              ${((ride.pricePerSeat ?? 0) / 100).toFixed(0)}
+              ${((trip.driverRoute.pricePerSeat ?? 0) / 100).toFixed(0)}
             </p>
             <p className="text-muted-foreground text-sm">per seat</p>
           </div>
@@ -124,15 +127,15 @@ function SearchRideCard({ ride, fromPlaceId, toPlaceId }: SearchRideCardProps) {
             </div>
             <div className="flex-1 space-y-3">
               <div>
-                <p className="font-medium">{ride.fromName}</p>
+                <p className="font-medium">{trip.driverRoute.fromName}</p>
                 <p className="text-muted-foreground text-xs">
-                  ~{ride.pickupDistanceKm} km from your pickup
+                  ~{trip.pickupDistanceKm} km from your pickup
                 </p>
               </div>
               <div>
-                <p className="font-medium">{ride.toName}</p>
+                <p className="font-medium">{trip.driverRoute.toName}</p>
                 <p className="text-muted-foreground text-xs">
-                  ~{ride.dropoffDistanceKm} km from your dropoff
+                  ~{trip.dropoffDistanceKm} km from your dropoff
                 </p>
               </div>
             </div>
@@ -152,7 +155,7 @@ function SearchRideCard({ ride, fromPlaceId, toPlaceId }: SearchRideCardProps) {
           <div className="flex items-center gap-1.5">
             <Users className="text-muted-foreground size-4" />
             <span>
-              {ride.availableSeats} seat{ride.availableSeats !== 1 ? "s" : ""}{" "}
+              {trip.seatsAvailable} seat{trip.seatsAvailable !== 1 ? "s" : ""}{" "}
               left
             </span>
           </div>
@@ -339,10 +342,10 @@ export function SearchResults({
   fromPlaceId,
   toPlaceId,
   date,
-  searchType = "rides",
+  mode = "driver",
 }: SearchResultsProps) {
   const trpc = useTRPC();
-  const isPassengerSearch = searchType === "wanted";
+  const isPassengerSearch = mode === "passenger";
 
   // Fetch place details to get lat/lng
   const { data: fromData, isLoading: fromLoading } = useQuery(
@@ -372,13 +375,13 @@ export function SearchResults({
     lng: toData?.location?.lng ?? 0,
   };
 
-  // Search for rides
+  // Search for trips
   const {
-    data: rideResults,
-    isLoading: rideLoading,
-    error: rideError,
+    data: tripResults,
+    isLoading: tripLoading,
+    error: tripError,
   } = useQuery(
-    trpc.ride.search.queryOptions(
+    trpc.search.findDrivers.queryOptions(
       {
         pickup: from,
         dropoff: to,
@@ -390,27 +393,9 @@ export function SearchResults({
     ),
   );
 
-  // Search for passengers (ride wanted)
-  const {
-    data: passengerResults,
-    isLoading: passengerLoading,
-    error: passengerError,
-  } = useQuery(
-    trpc.rideWanted.search.queryOptions(
-      {
-        from,
-        to,
-        date: date ? new Date(date) : undefined,
-        radiusKm: 50,
-        limit: 20,
-      },
-      { enabled: canSearch && isPassengerSearch },
-    ),
-  );
-
-  const searchResults = isPassengerSearch ? passengerResults : rideResults;
-  const searchError = isPassengerSearch ? passengerError : rideError;
-  const searchLoading = isPassengerSearch ? passengerLoading : rideLoading;
+  const searchResults = tripResults;
+  const searchError = tripError;
+  const searchLoading = tripLoading;
 
   const isLoading = fromLoading || toLoading || (canSearch && searchLoading);
 
@@ -468,46 +453,36 @@ export function SearchResults({
           <Car className="text-muted-foreground mb-4 size-12" />
         )}
         <h3 className="text-lg font-medium">
-          {isPassengerSearch ? "No passengers found" : "No rides available"}
+          {isPassengerSearch ? "No passengers found" : "No trips available"}
         </h3>
         <p className="text-muted-foreground mt-1 text-center text-sm">
           {isPassengerSearch ? (
             <>
               No passengers are looking for rides along this route yet.
               <br />
-              Check back later or post your ride to let them find you!
+              Check back later or post your trip to let them find you!
             </>
           ) : (
             <>
-              No rides found for this route yet.
+              No trips found for this route yet.
               <br />
-              Check back later or post your own ride!
+              Check back later or post your own trip!
             </>
           )}
         </p>
         <Button className="mt-4" asChild>
-          <a href="/post">Post a Ride</a>
+          <a href="/post/driver">Post a Trip</a>
         </Button>
-      </div>
-    );
-  }
-
-  if (isPassengerSearch) {
-    return (
-      <div className="space-y-4">
-        {(passengerResults ?? []).map((request) => (
-          <PassengerCard key={request.id} request={request} />
-        ))}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {(rideResults ?? []).map((ride) => (
-        <SearchRideCard
-          key={ride.id}
-          ride={ride}
+      {tripResults.map((trip) => (
+        <SearchTripCard
+          key={trip.id}
+          trip={{ ...trip, seatsAvailable: 0 }}
           fromPlaceId={fromPlaceId}
           toPlaceId={toPlaceId}
         />
@@ -520,10 +495,10 @@ export function SearchResultsHeader({
   fromPlaceId,
   toPlaceId,
   date,
-  searchType = "rides",
+  mode = "driver",
 }: SearchResultsProps) {
   const trpc = useTRPC();
-  const isPassengerSearch = searchType === "wanted";
+  const isPassengerSearch = mode === "passenger";
 
   // Fetch place details to get lat/lng
   const { data: fromData, isLoading: fromLoading } = useQuery(
@@ -544,8 +519,8 @@ export function SearchResultsHeader({
   const canSearch =
     !!fromData?.location && !!toData?.location && !!fromPlaceId && !!toPlaceId;
 
-  const { data: rideResults, isLoading: rideLoading } = useQuery(
-    trpc.ride.search.queryOptions(
+  const { data: tripResults, isLoading: tripLoading } = useQuery(
+    trpc.search.findDrivers.queryOptions(
       {
         pickup: {
           lat: fromData?.location?.lat ?? 0,
@@ -564,33 +539,29 @@ export function SearchResultsHeader({
   );
 
   const { data: passengerResults, isLoading: passengerLoading } = useQuery(
-    trpc.rideWanted.search.queryOptions(
+    trpc.search.findPassengers.queryOptions(
       {
-        from: {
-          lat: fromData?.location?.lat ?? 0,
-          lng: fromData?.location?.lng ?? 0,
-        },
-        to: {
-          lat: toData?.location?.lat ?? 0,
-          lng: toData?.location?.lng ?? 0,
+        routeGeometry: {
+          type: "LineString" as const,
+          coordinates: [], // This would need the driver's route geometry
         },
         date: date ? new Date(date) : undefined,
         radiusKm: 50,
         limit: 20,
       },
-      { enabled: canSearch && isPassengerSearch },
+      { enabled: false }, // Disabled until we have driver's route
     ),
   );
 
-  const searchResults = isPassengerSearch ? passengerResults : rideResults;
-  const searchLoading = isPassengerSearch ? passengerLoading : rideLoading;
+  const searchResults = isPassengerSearch ? passengerResults : tripResults;
+  const searchLoading = isPassengerSearch ? passengerLoading : tripLoading;
 
   const isLoading = fromLoading || toLoading || (canSearch && searchLoading);
 
   if (!fromData?.location || !toData?.location) return null;
 
   const count = searchResults?.length ?? 0;
-  const label = isPassengerSearch ? "passenger" : "ride";
+  const label = isPassengerSearch ? "passenger" : "trip";
 
   return (
     <span className="text-muted-foreground text-sm">

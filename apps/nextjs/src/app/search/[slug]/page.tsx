@@ -13,7 +13,12 @@ import {
 
 interface SearchPageProps {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ from?: string; to?: string; date?: string; type?: string }>;
+  searchParams: Promise<{
+    from?: string;
+    to?: string;
+    date?: string;
+    mode?: "driver" | "passenger";
+  }>;
 }
 
 export async function generateMetadata({
@@ -21,8 +26,8 @@ export async function generateMetadata({
   searchParams,
 }: SearchPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const { type } = await searchParams;
-  const isPassengerSearch = type === "wanted";
+  const { mode } = await searchParams;
+  const isPassengerSearch = mode === "passenger";
 
   // Format the slug for display
   const formattedSlug = slug
@@ -56,9 +61,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     from: fromPlaceId,
     to: toPlaceId,
     date: dateParam,
-    type: searchType,
+    mode = "driver",
   } = await searchParams;
-  const isPassengerSearch = searchType === "wanted";
 
   const [fromPlace, toPlace] = await Promise.all([
     fromPlaceId
@@ -84,12 +88,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           fromPlaceId={fromPlaceId ?? null}
           toPlaceId={toPlaceId ?? null}
           dateParam={dateParam ?? null}
-          searchType={isPassengerSearch ? "wanted" : "rides"}
+          mode={mode}
         />
 
         <SearchProvider>
           <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_400px]">
-            {/* Ride listings */}
+            {/* Trip listings */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold">
@@ -99,7 +103,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                   fromPlaceId={fromPlaceId ?? null}
                   toPlaceId={toPlaceId ?? null}
                   date={dateParam}
-                  searchType={isPassengerSearch ? "wanted" : "rides"}
+                  mode={mode}
                 />
               </div>
 
@@ -107,7 +111,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                 fromPlaceId={fromPlaceId ?? null}
                 toPlaceId={toPlaceId ?? null}
                 date={dateParam}
-                searchType={isPassengerSearch ? "wanted" : "rides"}
+                mode={mode}
               />
             </div>
 

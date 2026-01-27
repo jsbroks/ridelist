@@ -10,13 +10,20 @@ import { Button } from "@app/ui/button";
 import { Calendar } from "@app/ui/calendar";
 import { Label } from "@app/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@app/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@app/ui/select";
 
 import type { PlacePrediction } from "~/app/_components/location-picker";
 import { LocationPicker } from "~/app/_components/location-picker";
 
 const slugger = new GithubSlugger();
 
-type SearchMode = "rides" | "passengers";
+type SearchMode = "driver" | "passenger";
 
 interface RideSearchProps {
   showLabels?: boolean;
@@ -27,6 +34,7 @@ interface RideSearchProps {
   date?: Date;
   onDateChange?: (date: Date | undefined) => void;
   mode?: SearchMode;
+  onModeChange?: (mode: SearchMode) => void;
 }
 
 interface RideSearchWithStateProps {
@@ -34,7 +42,7 @@ interface RideSearchWithStateProps {
   initialFromLocation?: PlacePrediction | null;
   initialToLocation?: PlacePrediction | null;
   initialDate?: Date;
-  mode?: SearchMode;
+  initialMode?: SearchMode;
 }
 
 export function RideSearchWithState({
@@ -42,7 +50,7 @@ export function RideSearchWithState({
   initialFromLocation = null,
   initialToLocation = null,
   initialDate,
-  mode = "rides",
+  initialMode = "driver",
 }: RideSearchWithStateProps) {
   const [fromLocation, setFromLocation] = useState<PlacePrediction | null>(
     initialFromLocation,
@@ -51,7 +59,7 @@ export function RideSearchWithState({
     initialToLocation,
   );
   const [date, setDate] = useState<Date | undefined>(initialDate);
-
+  const [mode, setMode] = useState<SearchMode>(initialMode);
   return (
     <RideSearch
       showLabels={showLabels}
@@ -62,6 +70,7 @@ export function RideSearchWithState({
       date={date}
       onDateChange={setDate}
       mode={mode}
+      onModeChange={setMode}
     />
   );
 }
@@ -74,7 +83,8 @@ export function RideSearch({
   onToLocationChange,
   date,
   onDateChange,
-  mode = "rides",
+  onModeChange,
+  mode = "driver",
 }: RideSearchProps) {
   const router = useRouter();
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -92,15 +102,10 @@ export function RideSearch({
     const to = toLocation.placeId;
 
     // Build URL with search params
-    const params = new URLSearchParams({ from, to });
+    const params = new URLSearchParams({ from, to, mode });
 
     if (date) {
       params.set("date", format(date, "yyyy-MM-dd"));
-    }
-
-    // Add type param for passenger search
-    if (mode === "passengers") {
-      params.set("type", "wanted");
     }
 
     router.push(`/search/${slug}?${params.toString()}`);
@@ -114,14 +119,39 @@ export function RideSearch({
     onToLocationChange?.(temp ?? null);
   };
 
-  const isPassengerMode = mode === "passengers";
+  const isPassengerMode = mode === "passenger";
 
   return (
     <div className="bg-card/80 rounded-xl border p-6 shadow-lg backdrop-blur-sm">
-      <div className="grid gap-4 lg:grid-cols-[1fr_auto_1fr_auto_auto]">
+      <div className="grid gap-4 lg:grid-cols-[auto_1fr_auto_1fr_auto_auto]">
+        <div>
+          {showLabels && (
+            <Label className="pb-2">I&apos;m looking for...</Label>
+          )}
+          <Select value={mode} onValueChange={onModeChange}>
+            <SelectTrigger className="w-full min-w-48">
+              <SelectValue placeholder="Select a mode" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="driver">Driver</SelectItem>
+              <SelectItem value="passengers">Passengers</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <LocationPicker
-          label={showLabels ? (isPassengerMode ? "Your Starting Point" : "From") : undefined}
-          placeholder={isPassengerMode ? "Where are you leaving from..." : "Leaving from..."}
+          label={
+            showLabels
+              ? isPassengerMode
+                ? "Your Starting Point"
+                : "From"
+              : undefined
+          }
+          placeholder={
+            isPassengerMode
+              ? "Where are you leaving from..."
+              : "Leaving from..."
+          }
           value={fromLocation ?? null}
           onChange={
             onLocationChange ??
@@ -146,8 +176,16 @@ export function RideSearch({
         </div>
 
         <LocationPicker
-          label={showLabels ? (isPassengerMode ? "Your Destination" : "To") : undefined}
-          placeholder={isPassengerMode ? "Where are you heading..." : "Going to..."}
+          label={
+            showLabels
+              ? isPassengerMode
+                ? "Your Destination"
+                : "To"
+              : undefined
+          }
+          placeholder={
+            isPassengerMode ? "Where are you heading..." : "Going to..."
+          }
           value={toLocation ?? null}
           onChange={
             onToLocationChange ??
@@ -200,7 +238,7 @@ export function RideSearch({
             ) : (
               <Search className="size-4" />
             )}
-            {isPassengerMode ? "Find Passengers" : "Search Rides"}
+            {isPassengerMode ? "Find Passengers" : "Find a Driver"}
           </Button>
         </div>
       </div>

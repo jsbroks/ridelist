@@ -40,7 +40,6 @@ export const searchRouter = {
       const trips = await ctx.db.query.trip.findMany({
         where: and(
           eq(trip.status, "scheduled"),
-          gte(trip.seatsAvailable, input.minSeats),
           gte(trip.departureTime, searchDate),
         ),
         with: {

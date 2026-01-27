@@ -114,7 +114,6 @@ export const tripRouter = {
         id: z.uuid(),
         data: z.object({
           departureTime: z.coerce.date().optional(),
-          seatsAvailable: z.number().int().min(0).max(10).optional(),
         }),
       }),
     )
@@ -168,10 +167,7 @@ export const tripRouter = {
 
       const [updatedTrip] = await ctx.db
         .update(schema.trip)
-        .set({
-          status: "in_progress",
-          actualDepartureTime: new Date(),
-        })
+        .set({ status: "in_progress" })
         .where(eq(schema.trip.id, input.id))
         .returning();
 

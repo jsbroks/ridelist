@@ -174,7 +174,7 @@ export default async function HomePage() {
     },
     {
       label: "Rides Posted",
-      value: formatStatValue(homepageStats.ridesPosted),
+      value: formatStatValue(homepageStats.routesPosted),
       icon: Car,
     },
     {

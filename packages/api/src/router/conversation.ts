@@ -3,15 +3,15 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod/v4";
 
 import { and, desc, eq, isNull, ne } from "@app/db";
-import { conversation, message, ride, rideRequest } from "@app/db/schema";
+import * as schema from "@app/db/schema";
 
 import { protectedProcedure } from "../trpc";
 
 export interface ConversationItem {
   id: string;
-  rideRequestId: string;
-  rideRequestStatus: string;
-  rideId: string;
+  bookingId: string;
+  bookingStatus: string;
+  tripId: string;
   fromName: string;
   toName: string;
   departureTime: Date;
@@ -25,36 +25,36 @@ export interface ConversationItem {
 }
 
 export const conversationRouter = {
-  // Get or create a conversation for a ride request
+  // Get or create a conversation for a booking
   getOrCreate: protectedProcedure
-    .input(z.object({ rideRequestId: z.string().uuid() }))
+    .input(z.object({ bookingId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
-      // Verify the user is part of this ride request (driver or passenger)
-      const request = await ctx.db.query.rideRequest.findFirst({
-        where: eq(rideRequest.id, input.rideRequestId),
-        with: { ride: true },
+      // Verify the user is part of this booking (driver or passenger)
+      const bookingData = await ctx.db.query.booking.findFirst({
+        where: eq(schema.booking.id, input.bookingId),
+        with: { trip: true },
       });
 
-      if (!request) {
+      if (!bookingData) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Ride request not found",
+          message: "Booking not found",
         });
       }
 
-      const isDriver = request.ride.driverId === ctx.session.user.id;
-      const isPassenger = request.passengerId === ctx.session.user.id;
+      const isDriver = bookingData.trip.driverId === ctx.session.user.id;
+      const isPassenger = bookingData.passengerId === ctx.session.user.id;
 
       if (!isDriver && !isPassenger) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "You are not part of this ride request",
+          message: "You are not part of this booking",
         });
       }
 
       // Check if conversation already exists
       const existing = await ctx.db.query.conversation.findFirst({
-        where: eq(conversation.rideRequestId, input.rideRequestId),
+        where: eq(schema.conversation.bookingId, input.bookingId),
       });
 
       if (existing) {
@@ -63,8 +63,8 @@ export const conversationRouter = {
 
       // Create new conversation
       const [newConversation] = await ctx.db
-        .insert(conversation)
-        .values({ rideRequestId: input.rideRequestId })
+        .insert(schema.conversation)
+        .values({ bookingId: input.bookingId })
         .returning();
 
       return newConversation;
@@ -81,10 +81,10 @@ export const conversationRouter = {
     .mutation(async ({ ctx, input }) => {
       // Verify the conversation exists and user is part of it
       const conv = await ctx.db.query.conversation.findFirst({
-        where: eq(conversation.id, input.conversationId),
+        where: eq(schema.conversation.id, input.conversationId),
         with: {
-          rideRequest: {
-            with: { ride: true },
+          booking: {
+            with: { trip: true },
           },
         },
       });
@@ -96,8 +96,8 @@ export const conversationRouter = {
         });
       }
 
-      const isDriver = conv.rideRequest?.ride.driverId === ctx.session.user.id;
-      const isPassenger = conv.rideRequest?.passengerId === ctx.session.user.id;
+      const isDriver = conv.booking.trip.driverId === ctx.session.user.id;
+      const isPassenger = conv.booking.passengerId === ctx.session.user.id;
 
       if (!isDriver && !isPassenger) {
         throw new TRPCError({
@@ -108,7 +108,7 @@ export const conversationRouter = {
 
       // Create the message
       const [newMessage] = await ctx.db
-        .insert(message)
+        .insert(schema.message)
         .values({
           conversationId: input.conversationId,
           senderId: ctx.session.user.id,
@@ -130,10 +130,10 @@ export const conversationRouter = {
     .query(async ({ ctx, input }) => {
       // Verify user is part of the conversation
       const conv = await ctx.db.query.conversation.findFirst({
-        where: eq(conversation.id, input.conversationId),
+        where: eq(schema.conversation.id, input.conversationId),
         with: {
-          rideRequest: {
-            with: { ride: true },
+          booking: {
+            with: { trip: true },
           },
         },
       });
@@ -145,8 +145,8 @@ export const conversationRouter = {
         });
       }
 
-      const isDriver = conv.rideRequest?.ride.driverId === ctx.session.user.id;
-      const isPassenger = conv.rideRequest?.passengerId === ctx.session.user.id;
+      const isDriver = conv.booking.trip.driverId === ctx.session.user.id;
+      const isPassenger = conv.booking.passengerId === ctx.session.user.id;
 
       if (!isDriver && !isPassenger) {
         throw new TRPCError({
@@ -157,8 +157,8 @@ export const conversationRouter = {
 
       // Fetch messages
       const messages = await ctx.db.query.message.findMany({
-        where: eq(message.conversationId, input.conversationId),
-        orderBy: desc(message.createdAt),
+        where: eq(schema.message.conversationId, input.conversationId),
+        orderBy: desc(schema.message.createdAt),
         limit: input.limit,
         with: { sender: true },
       });
@@ -172,10 +172,10 @@ export const conversationRouter = {
     .mutation(async ({ ctx, input }) => {
       // Verify user is part of the conversation
       const conv = await ctx.db.query.conversation.findFirst({
-        where: eq(conversation.id, input.conversationId),
+        where: eq(schema.conversation.id, input.conversationId),
         with: {
-          rideRequest: {
-            with: { ride: true },
+          booking: {
+            with: { trip: true },
           },
         },
       });
@@ -187,8 +187,8 @@ export const conversationRouter = {
         });
       }
 
-      const isDriver = conv.rideRequest?.ride.driverId === ctx.session.user.id;
-      const isPassenger = conv.rideRequest?.passengerId === ctx.session.user.id;
+      const isDriver = conv.booking.trip.driverId === ctx.session.user.id;
+      const isPassenger = conv.booking.passengerId === ctx.session.user.id;
 
       if (!isDriver && !isPassenger) {
         throw new TRPCError({
@@ -199,13 +199,13 @@ export const conversationRouter = {
 
       // Mark all unread messages from the other user as read
       await ctx.db
-        .update(message)
+        .update(schema.message)
         .set({ readAt: new Date() })
         .where(
           and(
-            eq(message.conversationId, input.conversationId),
-            ne(message.senderId, ctx.session.user.id),
-            isNull(message.readAt),
+            eq(schema.message.conversationId, input.conversationId),
+            ne(schema.message.senderId, ctx.session.user.id),
+            isNull(schema.message.readAt),
           ),
         );
 
@@ -216,33 +216,40 @@ export const conversationRouter = {
   list: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session.user.id;
 
-    // Get all ride requests where user is passenger
-    const passengerRequests = await ctx.db.query.rideRequest.findMany({
-      where: eq(rideRequest.passengerId, userId),
+    // Get all bookings where user is passenger
+    const passengerBookings = await ctx.db.query.booking.findMany({
+      where: eq(schema.booking.passengerId, userId),
       with: {
-        ride: { with: { driver: true } },
-        conversation: {
+        trip: {
+          with: {
+            driver: true,
+            driverRoute: true,
+          },
+        },
+        conversations: {
           with: {
             messages: {
-              orderBy: desc(message.createdAt),
+              orderBy: desc(schema.message.createdAt),
               limit: 1,
+              with: { sender: true },
             },
           },
         },
       },
     });
 
-    // Get all rides where user is driver
-    const driverRides = await ctx.db.query.ride.findMany({
-      where: eq(ride.driverId, userId),
+    // Get all trips where user is driver
+    const driverTrips = await ctx.db.query.trip.findMany({
+      where: eq(schema.trip.driverId, userId),
       with: {
-        requests: {
+        driverRoute: true,
+        bookings: {
           with: {
             passenger: true,
-            conversation: {
+            conversations: {
               with: {
                 messages: {
-                  orderBy: desc(message.createdAt),
+                  orderBy: desc(schema.message.createdAt),
                   limit: 1,
                 },
               },
@@ -255,46 +262,46 @@ export const conversationRouter = {
     const conversations: ConversationItem[] = [];
 
     // Add passenger conversations
-    for (const r of passengerRequests) {
-      if (r.conversation) {
+    for (const booking of passengerBookings) {
+      for (const conv of booking.conversations) {
         conversations.push({
-          id: r.conversation.id,
-          rideRequestId: r.id,
-          rideRequestStatus: r.status,
-          rideId: r.ride.id,
-          fromName: r.ride.fromName,
-          toName: r.ride.toName,
-          departureTime: r.ride.departureTime,
+          id: conv.id,
+          bookingId: booking.id,
+          bookingStatus: booking.status,
+          tripId: booking.trip.id,
+          fromName: booking.trip.driverRoute.fromName,
+          toName: booking.trip.driverRoute.toName,
+          departureTime: booking.trip.departureTime,
           otherUser: {
-            id: r.ride.driver.id,
-            name: r.ride.driver.name,
-            image: r.ride.driver.image,
+            id: booking.trip.driver.id,
+            name: booking.trip.driver.name,
+            image: booking.trip.driver.image,
           },
-          lastMessage: r.conversation.messages[0] ?? null,
-          createdAt: r.conversation.createdAt,
+          lastMessage: conv.messages[0] ?? null,
+          createdAt: conv.createdAt,
         });
       }
     }
 
     // Add driver conversations
-    for (const driverRide of driverRides) {
-      for (const req of driverRide.requests) {
-        if (req.conversation) {
+    for (const trip of driverTrips) {
+      for (const booking of trip.bookings) {
+        for (const conv of booking.conversations) {
           conversations.push({
-            id: req.conversation.id,
-            rideRequestId: req.id,
-            rideRequestStatus: req.status,
-            rideId: driverRide.id,
-            fromName: driverRide.fromName,
-            toName: driverRide.toName,
-            departureTime: driverRide.departureTime,
+            id: conv.id,
+            bookingId: booking.id,
+            bookingStatus: booking.status,
+            tripId: trip.id,
+            fromName: trip.driverRoute.fromName,
+            toName: trip.driverRoute.toName,
+            departureTime: trip.departureTime,
             otherUser: {
-              id: req.passenger.id,
-              name: req.passenger.name,
-              image: req.passenger.image,
+              id: booking.passenger.id,
+              name: booking.passenger.name,
+              image: booking.passenger.image,
             },
-            lastMessage: req.conversation.messages[0] ?? null,
-            createdAt: req.conversation.createdAt,
+            lastMessage: conv.messages[0] ?? null,
+            createdAt: conv.createdAt,
           });
         }
       }
@@ -310,19 +317,24 @@ export const conversationRouter = {
     return conversations;
   }),
 
-  // Get a single conversation by ride request ID
-  getByRideRequest: protectedProcedure
-    .input(z.object({ rideRequestId: z.string().uuid() }))
+  // Get a single conversation by booking ID
+  getByBooking: protectedProcedure
+    .input(z.object({ bookingId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      const request = await ctx.db.query.rideRequest.findFirst({
-        where: eq(rideRequest.id, input.rideRequestId),
+      const bookingData = await ctx.db.query.booking.findFirst({
+        where: eq(schema.booking.id, input.bookingId),
         with: {
-          ride: { with: { driver: true } },
+          trip: {
+            with: {
+              driver: true,
+              driverRoute: true,
+            },
+          },
           passenger: true,
-          conversation: {
+          conversations: {
             with: {
               messages: {
-                orderBy: desc(message.createdAt),
+                orderBy: desc(schema.message.createdAt),
                 limit: 20,
                 with: { sender: true },
               },
@@ -331,27 +343,30 @@ export const conversationRouter = {
         },
       });
 
-      if (!request) {
+      if (!bookingData) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Ride request not found",
+          message: "Booking not found",
         });
       }
 
-      const isDriver = request.ride.driverId === ctx.session.user.id;
-      const isPassenger = request.passengerId === ctx.session.user.id;
+      const isDriver = bookingData.trip.driverId === ctx.session.user.id;
+      const isPassenger = bookingData.passengerId === ctx.session.user.id;
 
       if (!isDriver && !isPassenger) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "You are not part of this ride request",
+          message: "You are not part of this booking",
         });
       }
 
+      // Get the first conversation (there should be at most one per booking)
+      const conversation = bookingData.conversations[0] ?? null;
+
       return {
-        rideRequest: request,
-        conversation: request.conversation,
-        otherUser: isDriver ? request.passenger : request.ride.driver,
+        booking: bookingData,
+        conversation,
+        otherUser: isDriver ? bookingData.passenger : bookingData.trip.driver,
       };
     }),
 } satisfies TRPCRouterRecord;

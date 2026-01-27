@@ -12,14 +12,14 @@ interface SearchFiltersProps {
   fromPlaceId: string | null;
   toPlaceId: string | null;
   dateParam: string | null;
-  searchType?: "rides" | "wanted";
+  mode?: "driver" | "passenger";
 }
 
 export function SearchFilters({
   fromPlaceId,
   toPlaceId,
   dateParam,
-  searchType = "rides",
+  mode = "driver",
 }: SearchFiltersProps) {
   const trpc = useTRPC();
 
@@ -85,7 +85,7 @@ export function SearchFilters({
       onToLocationChange={setToOverride}
       date={date}
       onDateChange={setDate}
-      mode={searchType === "wanted" ? "passengers" : "rides"}
+      mode={mode}
     />
   );
 }

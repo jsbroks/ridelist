@@ -3,7 +3,7 @@
 import type React from "react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Camera, Loader2 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@app/ui/avatar";
@@ -47,8 +47,16 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ user }) => {
     text: string;
   } | null>(null);
 
+  const queryClient = useQueryClient();
+
   const trpc = useTRPC();
-  const updateBioMutation = useMutation(trpc.user.updateBio.mutationOptions());
+  const updateBioMutation = useMutation(
+    trpc.user.updateProfile.mutationOptions({
+      onSuccess: () => {
+        void queryClient.invalidateQueries();
+      },
+    }),
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,7 +159,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ user }) => {
             className="min-h-32 resize-none"
             maxLength={500}
           />
-          <p className="text-muted-foreground text-xs text-right">
+          <p className="text-muted-foreground text-right text-xs">
             {bio.length}/500 characters
           </p>
         </div>

@@ -95,10 +95,10 @@ function UserRoute({
   return null;
 }
 
-// Component to render the hovered ride's route polyline (red line)
+// Component to render the hovered trip's route polyline (red line)
 function DriverRoute() {
   const map = useMap();
-  const { hoveredRide } = useSearchContext();
+  const { hoveredTrip } = useSearchContext();
   const polylineRef = useRef<google.maps.Polyline | null>(null);
 
   useEffect(() => {
@@ -110,11 +110,11 @@ function DriverRoute() {
       polylineRef.current = null;
     }
 
-    if (!hoveredRide?.routeGeometry) return;
+    if (!hoveredTrip?.routeGeometry) return;
 
     // Convert GeoJSON coordinates to Google Maps LatLng
     // GeoJSON uses [lng, lat], Google Maps uses {lat, lng}
-    const path = hoveredRide.routeGeometry.coordinates.map(([lng, lat]) => ({
+    const path = hoveredTrip.routeGeometry.coordinates.map(([lng, lat]) => ({
       lat,
       lng,
     }));
@@ -141,7 +141,7 @@ function DriverRoute() {
         polylineRef.current = null;
       }
     };
-  }, [map, hoveredRide]);
+  }, [map, hoveredTrip]);
 
   return null;
 }
@@ -200,7 +200,7 @@ function MapContent({
   fromPlaceId: string;
   toPlaceId: string;
 }) {
-  const { hoveredRide } = useSearchContext();
+  const { hoveredTrip } = useSearchContext();
 
   return (
     <div className="relative h-full w-full">
@@ -232,10 +232,10 @@ function MapContent({
         </div>
       )}
 
-      {/* Legend and hovered ride info */}
+      {/* Legend and hovered trip info */}
       <div className="absolute right-4 bottom-4 left-4 z-10">
         <div className="bg-card/95 rounded-lg border p-3 shadow-lg backdrop-blur-sm">
-          {hoveredRide ? (
+          {hoveredTrip ? (
             <div className="space-y-2">
               {/* Driver's route */}
               <div className="flex items-center gap-2 text-sm">
@@ -244,11 +244,11 @@ function MapContent({
                   Driver&apos;s route:
                 </span>
                 <span className="truncate font-medium">
-                  {hoveredRide.fromName}
+                  {hoveredTrip.fromName}
                 </span>
                 <span className="text-muted-foreground">→</span>
                 <span className="truncate font-medium">
-                  {hoveredRide.toName}
+                  {hoveredTrip.toName}
                 </span>
               </div>
             </div>
@@ -265,7 +265,7 @@ function MapContent({
                 </div>
               </div>
               <p className="text-muted-foreground text-center text-xs">
-                Hover over a ride to preview the driver&apos;s route
+                Hover over a trip to preview the driver&apos;s route
               </p>
             </div>
           )}
