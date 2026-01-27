@@ -13,7 +13,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 import { user } from "./auth-schema";
-import { ride } from "./ride";
+import { booking } from "./booking";
 
 // Enum
 export const reviewTypeEnum = pgEnum("review_type", [
@@ -26,9 +26,9 @@ export const review = pgTable(
   "review",
   {
     id: uuid("id").notNull().primaryKey().defaultRandom(),
-    rideId: uuid("ride_id")
+    bookingId: uuid("booking_id")
       .notNull()
-      .references(() => ride.id, { onDelete: "cascade" }),
+      .references(() => booking.id, { onDelete: "cascade" }),
 
     // Who is leaving the review
     reviewerId: text("reviewer_id")
@@ -61,13 +61,13 @@ export const review = pgTable(
       .notNull(),
   },
   (table) => [
-    index("review_ride_id_idx").on(table.rideId),
+    index("review_booking_id_idx").on(table.bookingId),
     index("review_reviewer_id_idx").on(table.reviewerId),
     index("review_reviewee_id_idx").on(table.revieweeId),
     index("review_rating_idx").on(table.rating),
-    // Unique constraint: one review per reviewer/reviewee/ride combination
+    // Unique constraint: one review per reviewer/reviewee/booking combination
     unique("review_unique").on(
-      table.rideId,
+      table.bookingId,
       table.reviewerId,
       table.revieweeId,
     ),
@@ -76,9 +76,9 @@ export const review = pgTable(
 
 // Relations
 export const reviewRelations = relations(review, ({ one }) => ({
-  ride: one(ride, {
-    fields: [review.rideId],
-    references: [ride.id],
+  booking: one(booking, {
+    fields: [review.bookingId],
+    references: [booking.id],
   }),
   reviewer: one(user, {
     fields: [review.reviewerId],
@@ -94,7 +94,7 @@ export const reviewRelations = relations(review, ({ one }) => ({
 
 // Zod schemas
 export const CreateReviewSchema = createInsertSchema(review, {
-  rideId: z.string().uuid(),
+  bookingId: z.string().uuid(),
   revieweeId: z.string().min(1),
   type: z.enum(["driver_to_passenger", "passenger_to_driver"]),
   rating: z.number().int().min(1).max(5),
@@ -108,3 +108,8 @@ export const CreateReviewSchema = createInsertSchema(review, {
 });
 
 export const ReviewSchema = createSelectSchema(review);
+
+// Type exports
+export type Review = typeof review.$inferSelect;
+export type NewReview = typeof review.$inferInsert;
+export type ReviewType = (typeof reviewTypeEnum.enumValues)[number];

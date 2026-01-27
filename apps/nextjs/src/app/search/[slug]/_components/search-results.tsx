@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
 import {
   Bike,
   Calendar,
@@ -23,6 +23,7 @@ import { Button } from "@app/ui/button";
 import { Skeleton } from "@app/ui/skeleton";
 
 import { useTRPC } from "~/trpc/react";
+import { useSearchContext } from "./search-context";
 
 interface SearchResultsProps {
   fromPlaceId: string | null;
@@ -51,6 +52,7 @@ interface SearchRideCardProps {
     pricePerSeat: number | null;
     pickupDistanceKm: number;
     dropoffDistanceKm: number;
+    routeGeometry: GeoJSON.LineString;
     driver: {
       id: string;
       name: string;
@@ -63,11 +65,27 @@ interface SearchRideCardProps {
 
 function SearchRideCard({ ride, fromPlaceId, toPlaceId }: SearchRideCardProps) {
   const departureDate = new Date(ride.departureTime);
+  const { setHoveredRide } = useSearchContext();
+
+  const handleMouseEnter = () => {
+    setHoveredRide({
+      id: ride.id,
+      routeGeometry: ride.routeGeometry,
+      fromName: ride.fromName,
+      toName: ride.toName,
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredRide(null);
+  };
 
   return (
     <Link
       href={`/ride/${ride.id}?pickup=${fromPlaceId}&dropoff=${toPlaceId}`}
       className="block"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <div className="hover:bg-muted/50 hover:border-primary/20 rounded-lg border p-4 transition-all">
         {/* Top row: Driver info and price */}
@@ -345,6 +363,15 @@ export function SearchResults({
   const canSearch =
     !!fromData?.location && !!toData?.location && !!fromPlaceId && !!toPlaceId;
 
+  const from = {
+    lat: fromData?.location?.lat ?? 0,
+    lng: fromData?.location?.lng ?? 0,
+  };
+  const to = {
+    lat: toData?.location?.lat ?? 0,
+    lng: toData?.location?.lng ?? 0,
+  };
+
   // Search for rides
   const {
     data: rideResults,
@@ -353,14 +380,8 @@ export function SearchResults({
   } = useQuery(
     trpc.ride.search.queryOptions(
       {
-        pickup: {
-          lat: fromData?.location?.lat ?? 0,
-          lng: fromData?.location?.lng ?? 0,
-        },
-        dropoff: {
-          lat: toData?.location?.lat ?? 0,
-          lng: toData?.location?.lng ?? 0,
-        },
+        pickup: from,
+        dropoff: to,
         date: date ? new Date(date) : undefined,
         radiusKm: 25,
         limit: 20,
@@ -377,14 +398,8 @@ export function SearchResults({
   } = useQuery(
     trpc.rideWanted.search.queryOptions(
       {
-        from: {
-          lat: fromData?.location?.lat ?? 0,
-          lng: fromData?.location?.lng ?? 0,
-        },
-        to: {
-          lat: toData?.location?.lat ?? 0,
-          lng: toData?.location?.lng ?? 0,
-        },
+        from,
+        to,
         date: date ? new Date(date) : undefined,
         radiusKm: 50,
         limit: 20,

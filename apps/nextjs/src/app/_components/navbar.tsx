@@ -23,7 +23,7 @@ export const Navbar: React.FC<NavbarProps> = ({ className }) => {
 
         {/* Desktop Navigation - Server Rendered */}
         <div className="hidden items-center gap-1 md:flex">
-          <Link href="/search">
+          <Link href="/">
             <Button variant="ghost" className="gap-2">
               <Search className="size-4" />
               Find a Ride

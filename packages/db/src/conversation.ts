@@ -1,6 +1,5 @@
-import { relations, sql } from "drizzle-orm";
+import { relations } from "drizzle-orm";
 import {
-  check,
   index,
   pgTable,
   text,
@@ -11,25 +10,19 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 import { user } from "./auth-schema";
-import { rideRequest } from "./ride-request";
-import { rideWantedOffer } from "./ride-wanted";
+import { booking } from "./booking";
 
-// Conversation - A conversation thread between a driver and passenger
-// Can be linked to either a ride request OR a ride-wanted offer (exactly one must be set)
+// Conversation - A conversation thread between a driver and passenger for a booking
 export const conversation = pgTable(
   "conversation",
   {
     id: uuid("id").notNull().primaryKey().defaultRandom(),
 
-    // Link to ride request (passenger requesting to join a driver's ride)
-    rideRequestId: uuid("ride_request_id")
+    // Link to booking (the driver-passenger connection)
+    bookingId: uuid("booking_id")
+      .notNull()
       .unique()
-      .references(() => rideRequest.id, { onDelete: "cascade" }),
-
-    // Link to ride-wanted offer (driver offering to fulfill a passenger's ride-wanted post)
-    rideWantedOfferId: uuid("ride_wanted_offer_id")
-      .unique()
-      .references(() => rideWantedOffer.id, { onDelete: "cascade" }),
+      .references(() => booking.id, { onDelete: "cascade" }),
 
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -39,15 +32,7 @@ export const conversation = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => [
-    index("conversation_ride_request_id_idx").on(table.rideRequestId),
-    index("conversation_ride_wanted_offer_id_idx").on(table.rideWantedOfferId),
-    // Ensure exactly one of rideRequestId or rideWantedOfferId is set
-    check(
-      "conversation_context_check",
-      sql`(ride_request_id IS NOT NULL AND ride_wanted_offer_id IS NULL) OR (ride_request_id IS NULL AND ride_wanted_offer_id IS NOT NULL)`,
-    ),
-  ],
+  (table) => [index("conversation_booking_id_idx").on(table.bookingId)],
 );
 
 // Message - An individual message within a conversation
@@ -82,13 +67,9 @@ export const message = pgTable(
 export const conversationRelations = relations(
   conversation,
   ({ one, many }) => ({
-    rideRequest: one(rideRequest, {
-      fields: [conversation.rideRequestId],
-      references: [rideRequest.id],
-    }),
-    rideWantedOffer: one(rideWantedOffer, {
-      fields: [conversation.rideWantedOfferId],
-      references: [rideWantedOffer.id],
+    booking: one(booking, {
+      fields: [conversation.bookingId],
+      references: [booking.id],
     }),
     messages: many(message),
   }),
@@ -123,3 +104,9 @@ export const CreateMessageSchema = createInsertSchema(message, {
 });
 
 export const MessageSchema = createSelectSchema(message);
+
+// Type exports
+export type Conversation = typeof conversation.$inferSelect;
+export type NewConversation = typeof conversation.$inferInsert;
+export type Message = typeof message.$inferSelect;
+export type NewMessage = typeof message.$inferInsert;

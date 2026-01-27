@@ -129,12 +129,16 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
   const notes = useWatch({ control, name: "notes" });
 
   // tRPC mutation for creating a ride
-  const createRideMutation = useMutation(
-    trpc.ride.create.mutationOptions({
+  const createRouteMutation = useMutation(
+    trpc.driversRoute.create.mutationOptions({
       onSuccess: (data) => {
         toast.success("Ride posted successfully!");
         void queryClient.invalidateQueries();
-        router.push(`/ride/${data.id}`);
+        if (!data.trip) {
+          toast.error("Failed to create trip. Please try again.");
+          return;
+        }
+        router.push(`/ride/${data.trip.id}`);
       },
       onError: (error) => {
         toast.error(error.message);
@@ -158,7 +162,7 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
 
   const canSubmit =
     fromLocation && toLocation && date && departureTime && price;
-  const isSubmitting = createRideMutation.isPending;
+  const isSubmitting = createRouteMutation.isPending;
 
   const onSubmit = async (data: PostRideFormData) => {
     if (!data.fromLocation || !data.toLocation || !data.date) return;
@@ -194,7 +198,7 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
         return;
       }
       // Create the ride using tRPC mutation
-      createRideMutation.mutate({
+      createRouteMutation.mutate({
         fromPlaceId: data.fromLocation.placeId,
         fromName: data.fromLocation.mainText,
         fromAddress: fromDetails.formattedAddress ?? undefined,
@@ -206,7 +210,7 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
         toLat: toDetails.location.lat,
         toLng: toDetails.location.lng,
         departureTime: departureDatetime,
-        totalSeats: parseInt(data.seats),
+        seatsOffered: parseInt(data.seats),
         pricePerSeat: priceInCents,
         description: data.notes || undefined,
         distanceKm: routeInfo.distanceKm,

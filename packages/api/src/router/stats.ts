@@ -1,7 +1,7 @@
 import type { TRPCRouterRecord } from "@trpc/server";
 
-import { count, sql, sum } from "@app/db";
-import { ride, user } from "@app/db/schema";
+import { count, eq, sql, sum } from "@app/db";
+import * as schema from "@app/db/schema";
 
 import { publicProcedure } from "../trpc";
 
@@ -12,36 +12,46 @@ export const statsRouter = {
    */
   homepage: publicProcedure.query(async ({ ctx }) => {
     // Run all count queries in parallel for efficiency
-    const [usersResult, ridesResult, citiesResult] = await Promise.all([
-      // Count total users
-      ctx.db.select({ count: count() }).from(user),
+    const [usersResult, tripsResult, routesResult, citiesResult] =
+      await Promise.all([
+        // Count total users
+        ctx.db.select({ count: count() }).from(schema.user),
 
-      // Count total rides and sum distance for CO2 calculation
-      ctx.db
-        .select({
-          count: count(),
-          totalDistanceKm: sum(ride.distanceKm),
-        })
-        .from(ride),
+        // Count completed trips and sum distance (route distance * trips)
+        ctx.db
+          .select({
+            tripsCount: count(),
+            totalDistanceKm: sum(schema.driverRoute.distanceKm),
+          })
+          .from(schema.trip)
+          .innerJoin(
+            schema.driverRoute,
+            eq(schema.trip.driverRouteId, schema.driverRoute.id),
+          )
+          .where(eq(schema.trip.status, "completed")),
 
-      // Count distinct cities (both origin and destination)
-      ctx.db
-        .select({
-          count: sql<number>`(
+        // Count total routes
+        ctx.db.select({ count: count() }).from(schema.driverRoute),
+
+        // Count distinct cities (both origin and destination)
+        ctx.db
+          .select({
+            count: sql<number>`(
             SELECT COUNT(*) FROM (
-              SELECT DISTINCT ${ride.fromName} AS city FROM ${ride}
+              SELECT DISTINCT ${schema.driverRoute.fromName} AS city FROM ${schema.driverRoute}
               UNION
-              SELECT DISTINCT ${ride.toName} AS city FROM ${ride}
+              SELECT DISTINCT ${schema.driverRoute.toName} AS city FROM ${schema.driverRoute}
             ) AS unique_cities
           )`.as("count"),
-        })
-        .from(ride)
-        .limit(1),
-    ]);
+          })
+          .from(schema.driverRoute)
+          .limit(1),
+      ]);
 
-    const activeMembers = usersResult[0]?.count ?? 0;
-    const ridesPosted = ridesResult[0]?.count ?? 0;
-    const totalDistanceKm = Number(ridesResult[0]?.totalDistanceKm) || 0;
+    const activeMembers = Number(usersResult[0]?.count ?? 0);
+    const routesPosted = routesResult[0]?.count ?? 0;
+    const tripsCompleted = tripsResult[0]?.tripsCount ?? 0;
+    const totalDistanceKm = Number(tripsResult[0]?.totalDistanceKm) || 0;
     const citiesConnected = citiesResult[0]?.count ?? 0;
 
     // CO2 calculation:
@@ -53,7 +63,8 @@ export const statsRouter = {
 
     return {
       activeMembers,
-      ridesPosted,
+      routesPosted,
+      tripsCompleted,
       citiesConnected,
       co2SavedTons,
     };

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Navbar } from "~/app/_components/navbar";
 import { env } from "~/env";
 import { fetchQuery, trpc } from "~/trpc/server";
+import { SearchProvider } from "./_components/search-context";
 import { SearchFilters } from "./_components/search-filters";
 import { SearchMap } from "./_components/search-map";
 import {
@@ -86,14 +87,23 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           searchType={isPassengerSearch ? "wanted" : "rides"}
         />
 
-        <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_400px]">
-          {/* Ride listings */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">
-                {fromPlace?.name} to {toPlace?.name}
-              </h2>
-              <SearchResultsHeader
+        <SearchProvider>
+          <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_400px]">
+            {/* Ride listings */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold">
+                  {fromPlace?.name} to {toPlace?.name}
+                </h2>
+                <SearchResultsHeader
+                  fromPlaceId={fromPlaceId ?? null}
+                  toPlaceId={toPlaceId ?? null}
+                  date={dateParam}
+                  searchType={isPassengerSearch ? "wanted" : "rides"}
+                />
+              </div>
+
+              <SearchResults
                 fromPlaceId={fromPlaceId ?? null}
                 toPlaceId={toPlaceId ?? null}
                 date={dateParam}
@@ -101,27 +111,20 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               />
             </div>
 
-            <SearchResults
-              fromPlaceId={fromPlaceId ?? null}
-              toPlaceId={toPlaceId ?? null}
-              date={dateParam}
-              searchType={isPassengerSearch ? "wanted" : "rides"}
-            />
-          </div>
-
-          {/* Map sidebar */}
-          <div className="lg:sticky lg:top-4 lg:self-start">
-            <div className="overflow-hidden rounded-lg border">
-              <div className="h-[400px]">
-                <SearchMap
-                  googleMapsApiKey={googleMapsApiKey}
-                  fromPlaceId={fromPlaceId ?? null}
-                  toPlaceId={toPlaceId ?? null}
-                />
+            {/* Map sidebar */}
+            <div className="lg:sticky lg:top-4 lg:self-start">
+              <div className="overflow-hidden rounded-lg border">
+                <div className="h-[400px]">
+                  <SearchMap
+                    googleMapsApiKey={googleMapsApiKey}
+                    fromPlaceId={fromPlaceId ?? null}
+                    toPlaceId={toPlaceId ?? null}
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </SearchProvider>
       </main>
     </div>
   );

@@ -2,7 +2,7 @@ import type { TRPCRouterRecord } from "@trpc/server";
 import { z } from "zod/v4";
 
 import { and, count, eq } from "@app/db";
-import { ride, rideRequest, user } from "@app/db/schema";
+import * as schema from "@app/db/schema";
 
 import { protectedProcedure, publicProcedure } from "../trpc";
 
@@ -12,7 +12,7 @@ export const userRouter = {
     .input(z.object({ id: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
       const userData = await ctx.db.query.user.findFirst({
-        where: eq(user.id, input.id),
+        where: eq(schema.user.id, input.id),
       });
 
       if (!userData) {
@@ -32,40 +32,30 @@ export const userRouter = {
   profileStats: publicProcedure
     .input(z.object({ userId: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
-      // Count rides posted by user
-      const [postedCount] = await ctx.db
+      const [tripsJoinedCount] = await ctx.db
         .select({ count: count() })
-        .from(ride)
-        .where(eq(ride.driverId, input.userId));
+        .from(schema.passengerRoute)
+        .where(eq(schema.passengerRoute.passengerId, input.userId));
 
       // Count rides completed as driver
       const [completedAsDriverCount] = await ctx.db
         .select({ count: count() })
-        .from(ride)
-        .where(
-          and(eq(ride.driverId, input.userId), eq(ride.status, "completed")),
-        );
-
-      // Count rides joined as passenger (accepted requests)
-      const [joinedCount] = await ctx.db
-        .select({ count: count() })
-        .from(rideRequest)
+        .from(schema.trip)
         .where(
           and(
-            eq(rideRequest.passengerId, input.userId),
-            eq(rideRequest.status, "accepted"),
+            eq(schema.trip.driverId, input.userId),
+            eq(schema.trip.status, "completed"),
           ),
         );
 
       return {
-        ridesPosted: postedCount?.count ?? 0,
-        ridesCompletedAsDriver: completedAsDriverCount?.count ?? 0,
-        ridesJoined: joinedCount?.count ?? 0,
+        tripsCompletedAsDriver: completedAsDriverCount?.count ?? 0,
+        tripsJoined: tripsJoinedCount?.count ?? 0,
       };
     }),
 
   // Get listed (active) rides for a user
-  listedRides: publicProcedure
+  listedTrips: publicProcedure
     .input(
       z.object({
         userId: z.string().min(1),
@@ -73,17 +63,20 @@ export const userRouter = {
       }),
     )
     .query(async ({ ctx, input }) => {
-      const rides = await ctx.db.query.ride.findMany({
-        where: and(eq(ride.driverId, input.userId), eq(ride.status, "active")),
-        orderBy: (ride, { asc }) => [asc(ride.departureTime)],
+      const trips = await ctx.db.query.trip.findMany({
+        where: and(
+          eq(schema.trip.driverId, input.userId),
+          eq(schema.trip.status, "scheduled"),
+        ),
+        orderBy: (trip, { asc }) => [asc(trip.departureTime)],
         limit: input.limit,
       });
 
-      return rides;
+      return trips;
     }),
 
-  // Get completed rides for a user (as driver or passenger)
-  completedRides: publicProcedure
+  // Get completed trips for a user (as driver or passenger)
+  completedTrips: publicProcedure
     .input(
       z.object({
         userId: z.string().min(1),
@@ -92,38 +85,36 @@ export const userRouter = {
     )
     .query(async ({ ctx, input }) => {
       // Get rides completed as driver
-      const driverRides = await ctx.db.query.ride.findMany({
+      const driverTrips = await ctx.db.query.trip.findMany({
         where: and(
-          eq(ride.driverId, input.userId),
-          eq(ride.status, "completed"),
+          eq(schema.trip.driverId, input.userId),
+          eq(schema.trip.status, "completed"),
         ),
-        orderBy: (ride, { desc }) => [desc(ride.departureTime)],
+        orderBy: (trip, { desc }) => [desc(trip.departureTime)],
         limit: input.limit,
       });
 
       // Get rides completed as passenger
-      const passengerRequests = await ctx.db.query.rideRequest.findMany({
-        where: and(
-          eq(rideRequest.passengerId, input.userId),
-          eq(rideRequest.status, "accepted"),
-        ),
+      const passengerTrips = await ctx.db.query.trip.findMany({
+        where: eq(schema.trip.driverId, input.userId),
         with: {
-          ride: true,
+          driverRoute: true,
+          bookings: {
+            where: and(
+              eq(schema.booking.passengerId, input.userId),
+              eq(schema.booking.status, "completed"),
+            ),
+            with: {
+              passenger: true,
+            },
+          },
         },
-        limit: input.limit,
       });
-
-      const passengerRides = passengerRequests
-        .filter((r) => r.ride.status === "completed")
-        .map((r) => ({
-          ...r.ride,
-          role: "passenger" as const,
-        }));
 
       // Combine and sort by departure time
       const allRides = [
-        ...driverRides.map((r) => ({ ...r, role: "driver" as const })),
-        ...passengerRides,
+        ...driverTrips.map((r) => ({ ...r, role: "driver" as const })),
+        ...passengerTrips.map((r) => ({ ...r, role: "passenger" as const })),
       ]
         .sort(
           (a, b) =>
@@ -146,26 +137,9 @@ export const userRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const [updatedUser] = await ctx.db
-        .update(user)
+        .update(schema.user)
         .set(input)
-        .where(eq(user.id, ctx.session.user.id))
-        .returning();
-
-      return updatedUser;
-    }),
-
-  // Update current user's bio
-  updateBio: protectedProcedure
-    .input(
-      z.object({
-        bio: z.string().max(500).nullable(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const [updatedUser] = await ctx.db
-        .update(user)
-        .set({ bio: input.bio })
-        .where(eq(user.id, ctx.session.user.id))
+        .where(eq(schema.user.id, ctx.session.user.id))
         .returning();
 
       return updatedUser;
@@ -174,7 +148,7 @@ export const userRouter = {
   // Get current user's privacy settings
   getPrivacySettings: protectedProcedure.query(async ({ ctx }) => {
     const userData = await ctx.db.query.user.findFirst({
-      where: eq(user.id, ctx.session.user.id),
+      where: eq(schema.user.id, ctx.session.user.id),
       columns: {
         showPhoneNumber: true,
         phoneNumber: true,
@@ -196,11 +170,11 @@ export const userRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const [updatedUser] = await ctx.db
-        .update(user)
+        .update(schema.user)
         .set({ showPhoneNumber: input.showPhoneNumber })
-        .where(eq(user.id, ctx.session.user.id))
+        .where(eq(schema.user.id, ctx.session.user.id))
         .returning({
-          showPhoneNumber: user.showPhoneNumber,
+          showPhoneNumber: schema.user.showPhoneNumber,
         });
 
       return updatedUser;
@@ -215,11 +189,11 @@ export const userRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const [updatedUser] = await ctx.db
-        .update(user)
+        .update(schema.user)
         .set({ phoneNumber: input.phoneNumber })
-        .where(eq(user.id, ctx.session.user.id))
+        .where(eq(schema.user.id, ctx.session.user.id))
         .returning({
-          phoneNumber: user.phoneNumber,
+          phoneNumber: schema.user.phoneNumber,
         });
 
       return updatedUser;

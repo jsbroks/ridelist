@@ -7,6 +7,23 @@ import { conversation, message, ride, rideRequest } from "@app/db/schema";
 
 import { protectedProcedure } from "../trpc";
 
+export interface ConversationItem {
+  id: string;
+  rideRequestId: string;
+  rideRequestStatus: string;
+  rideId: string;
+  fromName: string;
+  toName: string;
+  departureTime: Date;
+  otherUser: { id: string; name: string | null; image: string | null };
+  lastMessage: {
+    content: string;
+    createdAt: Date;
+    senderId: string;
+  } | null;
+  createdAt: Date;
+}
+
 export const conversationRouter = {
   // Get or create a conversation for a ride request
   getOrCreate: protectedProcedure
@@ -79,8 +96,8 @@ export const conversationRouter = {
         });
       }
 
-      const isDriver = conv.rideRequest.ride.driverId === ctx.session.user.id;
-      const isPassenger = conv.rideRequest.passengerId === ctx.session.user.id;
+      const isDriver = conv.rideRequest?.ride.driverId === ctx.session.user.id;
+      const isPassenger = conv.rideRequest?.passengerId === ctx.session.user.id;
 
       if (!isDriver && !isPassenger) {
         throw new TRPCError({
@@ -128,8 +145,8 @@ export const conversationRouter = {
         });
       }
 
-      const isDriver = conv.rideRequest.ride.driverId === ctx.session.user.id;
-      const isPassenger = conv.rideRequest.passengerId === ctx.session.user.id;
+      const isDriver = conv.rideRequest?.ride.driverId === ctx.session.user.id;
+      const isPassenger = conv.rideRequest?.passengerId === ctx.session.user.id;
 
       if (!isDriver && !isPassenger) {
         throw new TRPCError({
@@ -170,8 +187,8 @@ export const conversationRouter = {
         });
       }
 
-      const isDriver = conv.rideRequest.ride.driverId === ctx.session.user.id;
-      const isPassenger = conv.rideRequest.passengerId === ctx.session.user.id;
+      const isDriver = conv.rideRequest?.ride.driverId === ctx.session.user.id;
+      const isPassenger = conv.rideRequest?.passengerId === ctx.session.user.id;
 
       if (!isDriver && !isPassenger) {
         throw new TRPCError({
@@ -234,23 +251,6 @@ export const conversationRouter = {
         },
       },
     });
-
-    type ConversationItem = {
-      id: string;
-      rideRequestId: string;
-      rideRequestStatus: string;
-      rideId: string;
-      fromName: string;
-      toName: string;
-      departureTime: Date;
-      otherUser: { id: string; name: string | null; image: string | null };
-      lastMessage: {
-        content: string;
-        createdAt: Date;
-        senderId: string;
-      } | null;
-      createdAt: Date;
-    };
 
     const conversations: ConversationItem[] = [];
 
