@@ -14,6 +14,7 @@ import {
   Search,
   Settings,
   User,
+  Users,
   X,
 } from "lucide-react";
 
@@ -152,6 +153,13 @@ export const MobileMenu: React.FC = () => {
               onClick={closeMenu}
             >
               Find a Ride
+            </MobileMenuLink>
+            <MobileMenuLink
+              href="/passengers"
+              icon={<Users className="text-primary size-5" />}
+              onClick={closeMenu}
+            >
+              Find Passengers
             </MobileMenuLink>
             <MobileMenuLink
               href="/post"

@@ -109,6 +109,14 @@ export default async function RidePage({
         }
       : null;
 
+  // Prepare route geometry for direction check
+  const routeGeometry = {
+    type: "LineString" as const,
+    coordinates: ride.routeGeometry.coordinates.map(
+      (coord) => [coord[0], coord[1]] as [number, number],
+    ),
+  };
+
   return (
     <main className="container py-8">
       <div className="flex flex-col gap-8 lg:flex-row">
@@ -125,7 +133,29 @@ export default async function RidePage({
             }}
             initialPickup={initialPickup}
             initialDropoff={initialDropoff}
+            routeGeometry={routeGeometry}
+            userPickupLocation={userPickupDetails?.location ?? null}
+            userDropoffLocation={userDropoffDetails?.location ?? null}
           />
+
+          {/* Mobile Map - Show below Driver's route on mobile */}
+          <div className="h-[300px] overflow-hidden rounded-xl lg:hidden">
+            <RideComparisonMap
+              apiKey={googleMapsApiKey}
+              driverRoute={{
+                type: "LineString",
+                coordinates: ride.routeGeometry.coordinates.map(
+                  (coord) => [coord[0], coord[1]] as [number, number],
+                ),
+              }}
+              fromName={ride.fromName}
+              toName={ride.toName}
+              userPickupPlaceId={userPickupPlaceId}
+              userDropoffPlaceId={userDropoffPlaceId}
+              userPickupName={userPickupDetails?.name}
+              userDropoffName={userDropoffDetails?.name}
+            />
+          </div>
 
           <Separator />
 
@@ -141,17 +171,7 @@ export default async function RidePage({
 
           <Separator />
 
-          <VehicleAmenitiesSection
-            preferences={{
-              luggageSize: ride.luggageSize as string | null,
-              hasWinterTires: ride.hasWinterTires as boolean | null,
-              allowsBikes: ride.allowsBikes as boolean | null,
-              allowsSkis: ride.allowsSkis as boolean | null,
-              allowsPets: ride.allowsPets as boolean | null,
-              hasAC: ride.hasAC as boolean | null,
-              hasPhoneCharging: ride.hasPhoneCharging as boolean | null,
-            }}
-          />
+          <VehicleAmenitiesSection preferences={ride} />
         </div>
 
         {/* Map Column - Sticky on large screens */}

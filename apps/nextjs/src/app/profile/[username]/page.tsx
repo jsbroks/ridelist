@@ -6,6 +6,7 @@ import { db } from "@app/db/client";
 import { user } from "@app/db/schema";
 
 import { getSession } from "~/auth/server";
+import { fetchQuery, trpc } from "~/trpc/server";
 import { ProfileContent } from "../_components/profile-content";
 
 interface ProfilePageProps {
@@ -50,5 +51,31 @@ export default async function PublicProfilePage({ params }: ProfilePageProps) {
 
   if (!profileUser) notFound();
 
-  return <ProfileContent user={profileUser} isOwnProfile={false} />;
+  const userId = profileUser.id;
+
+  const [profileStats, reviewStats, listedRides, completedRides, reviewsData] =
+    await Promise.all([
+      fetchQuery(trpc.user.profileStats.queryOptions({ userId })),
+      fetchQuery(trpc.review.stats.queryOptions({ userId })),
+      fetchQuery(trpc.user.listedRides.queryOptions({ userId, limit: 20 })),
+      fetchQuery(trpc.user.completedRides.queryOptions({ userId, limit: 20 })),
+      fetchQuery(trpc.review.forUser.queryOptions({ userId, limit: 20 })),
+    ]);
+
+  return (
+    <ProfileContent
+      user={profileUser}
+      isOwnProfile={false}
+      stats={{
+        ridesPosted: profileStats.ridesPosted,
+        ridesJoined: profileStats.ridesJoined,
+        rating: reviewStats.averageRating,
+        totalReviews: reviewStats.totalReviews,
+        distribution: reviewStats.distribution,
+      }}
+      listedRides={listedRides}
+      completedRides={completedRides}
+      reviews={reviewsData.reviews}
+    />
+  );
 }

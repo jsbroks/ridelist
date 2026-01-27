@@ -26,6 +26,7 @@
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
     "@trpc/tanstack-react-query": "catalog:",
+    "@turf/turf": "^7.3.2",
     "@vis.gl/react-google-maps": "^1.7.1",
     "better-auth": "catalog:",
     "date-fns": "^4.1.0",

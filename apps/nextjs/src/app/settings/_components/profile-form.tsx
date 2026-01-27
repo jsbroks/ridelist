@@ -3,14 +3,16 @@
 import type React from "react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
 import { Camera, Loader2 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@app/ui/avatar";
 import { Button } from "@app/ui/button";
 import { Input } from "@app/ui/input";
-import { Label } from "@app/ui/label";
+import { Textarea } from "@app/ui/textarea";
 
 import { authClient } from "~/auth/client";
+import { useTRPC } from "~/trpc/react";
 import { SettingsCard, SettingsRow } from "./settings-card";
 
 function getInitials(name: string | null | undefined): string {
@@ -30,6 +32,7 @@ interface ProfileFormProps {
     email: string;
     image?: string | null;
     username?: string | null;
+    bio?: string | null;
   };
 }
 
@@ -37,11 +40,15 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ user }) => {
   const router = useRouter();
   const [name, setName] = useState(user.name);
   const [username, setUsername] = useState(user.username ?? "");
+  const [bio, setBio] = useState(user.bio ?? "");
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
+
+  const trpc = useTRPC();
+  const updateBioMutation = useMutation(trpc.user.updateBio.mutationOptions());
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,10 +56,14 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ user }) => {
     setMessage(null);
 
     try {
+      // Update auth-related fields
       await authClient.updateUser({
         name,
         username: username || undefined,
       });
+
+      // Update bio via tRPC
+      await updateBioMutation.mutateAsync({ bio: bio.trim() || null });
 
       setMessage({ type: "success", text: "Profile updated successfully" });
       router.refresh();
@@ -125,6 +136,24 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({ user }) => {
           <SettingsRow label="Email" description="Your email address">
             <Input value={user.email} disabled className="bg-muted" />
           </SettingsRow>
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        title="About"
+        description="Tell other riders about yourself"
+      >
+        <div className="space-y-2">
+          <Textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            placeholder="Share a bit about yourself, your travel preferences, or what makes you a great travel companion..."
+            className="min-h-32 resize-none"
+            maxLength={500}
+          />
+          <p className="text-muted-foreground text-xs text-right">
+            {bio.length}/500 characters
+          </p>
         </div>
       </SettingsCard>
 

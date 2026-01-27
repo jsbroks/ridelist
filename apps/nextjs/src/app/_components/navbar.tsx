@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Car, Plus, Search } from "lucide-react";
+import { Car, Plus, Search, Users } from "lucide-react";
 
 import { cn } from "@app/ui";
 import { Button } from "@app/ui/button";
@@ -27,6 +27,12 @@ export const Navbar: React.FC<NavbarProps> = ({ className }) => {
             <Button variant="ghost" className="gap-2">
               <Search className="size-4" />
               Find a Ride
+            </Button>
+          </Link>
+          <Link href="/passengers">
+            <Button variant="ghost" className="gap-2">
+              <Users className="size-4" />
+              Find Passengers
             </Button>
           </Link>
           <Link href="/post">

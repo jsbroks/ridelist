@@ -12,19 +12,33 @@ import {
 
 interface SearchPageProps {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ from?: string; to?: string; date?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; date?: string; type?: string }>;
 }
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: SearchPageProps): Promise<Metadata> {
   const { slug } = await params;
+  const { type } = await searchParams;
+  const isPassengerSearch = type === "wanted";
 
   // Format the slug for display
   const formattedSlug = slug
     .split("-")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+
+  if (isPassengerSearch) {
+    return {
+      title: `Find Passengers: ${formattedSlug}`,
+      description: `Find passengers looking for rides along ${formattedSlug}. Connect with travelers and fill your empty seats.`,
+      openGraph: {
+        title: `Find Passengers: ${formattedSlug} | RideList`,
+        description: `Find passengers looking for rides along ${formattedSlug}. Connect with travelers and fill your empty seats.`,
+      },
+    };
+  }
 
   return {
     title: formattedSlug,
@@ -41,7 +55,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     from: fromPlaceId,
     to: toPlaceId,
     date: dateParam,
+    type: searchType,
   } = await searchParams;
+  const isPassengerSearch = searchType === "wanted";
 
   const [fromPlace, toPlace] = await Promise.all([
     fromPlaceId
@@ -67,6 +83,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           fromPlaceId={fromPlaceId ?? null}
           toPlaceId={toPlaceId ?? null}
           dateParam={dateParam ?? null}
+          searchType={isPassengerSearch ? "wanted" : "rides"}
         />
 
         <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_400px]">
@@ -79,12 +96,16 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               <SearchResultsHeader
                 fromPlaceId={fromPlaceId ?? null}
                 toPlaceId={toPlaceId ?? null}
+                date={dateParam}
+                searchType={isPassengerSearch ? "wanted" : "rides"}
               />
             </div>
 
             <SearchResults
               fromPlaceId={fromPlaceId ?? null}
               toPlaceId={toPlaceId ?? null}
+              date={dateParam}
+              searchType={isPassengerSearch ? "wanted" : "rides"}
             />
           </div>
 

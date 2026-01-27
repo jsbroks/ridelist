@@ -4,6 +4,9 @@ import { placesRouter } from "./router/places";
 import { reviewRouter } from "./router/review";
 import { rideRouter } from "./router/ride";
 import { rideRequestRouter } from "./router/ride-request";
+import { rideWantedRouter } from "./router/ride-wanted";
+import { statsRouter } from "./router/stats";
+import { userRouter } from "./router/user";
 import { createTRPCRouter } from "./trpc";
 
 export const appRouter = createTRPCRouter({
@@ -13,6 +16,9 @@ export const appRouter = createTRPCRouter({
   review: reviewRouter,
   ride: rideRouter,
   rideRequest: rideRequestRouter,
+  rideWanted: rideWantedRouter,
+  stats: statsRouter,
+  user: userRouter,
 });
 
 // export type definition of API

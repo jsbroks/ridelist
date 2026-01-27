@@ -17,12 +17,21 @@ interface RideHeaderProps {
   };
   initialPickup: PlacePrediction | null;
   initialDropoff: PlacePrediction | null;
+  routeGeometry?: {
+    type: "LineString";
+    coordinates: [number, number][];
+  };
+  userPickupLocation?: { lat: number; lng: number } | null;
+  userDropoffLocation?: { lat: number; lng: number } | null;
 }
 
 export const RideHeader: React.FC<RideHeaderProps> = ({
   ride,
   initialPickup,
   initialDropoff,
+  routeGeometry,
+  userPickupLocation,
+  userDropoffLocation,
 }) => {
   const hasUserRoute = initialPickup ?? initialDropoff;
 
@@ -44,6 +53,9 @@ export const RideHeader: React.FC<RideHeaderProps> = ({
             rideId={ride.id}
             initialPickup={initialPickup}
             initialDropoff={initialDropoff}
+            routeGeometry={routeGeometry}
+            userPickupLocation={userPickupLocation}
+            userDropoffLocation={userDropoffLocation}
           />
         </div>
       ) : (
@@ -58,6 +70,9 @@ export const RideHeader: React.FC<RideHeaderProps> = ({
             rideId={ride.id}
             initialPickup={initialPickup}
             initialDropoff={initialDropoff}
+            routeGeometry={routeGeometry}
+            userPickupLocation={userPickupLocation}
+            userDropoffLocation={userDropoffLocation}
           />
         </div>
       )}

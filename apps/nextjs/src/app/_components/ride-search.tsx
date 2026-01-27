@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { format, startOfDay } from "date-fns";
 import GithubSlugger from "github-slugger";
-import { ArrowRightLeft, CalendarIcon, Search } from "lucide-react";
+import { ArrowRightLeft, CalendarIcon, Search, Users } from "lucide-react";
 
 import { Button } from "@app/ui/button";
 import { Calendar } from "@app/ui/calendar";
@@ -16,6 +16,8 @@ import { LocationPicker } from "~/app/_components/location-picker";
 
 const slugger = new GithubSlugger();
 
+type SearchMode = "rides" | "passengers";
+
 interface RideSearchProps {
   showLabels?: boolean;
   fromLocation?: PlacePrediction | null;
@@ -24,6 +26,7 @@ interface RideSearchProps {
   onToLocationChange?: (location: PlacePrediction | null) => void;
   date?: Date;
   onDateChange?: (date: Date | undefined) => void;
+  mode?: SearchMode;
 }
 
 interface RideSearchWithStateProps {
@@ -31,6 +34,7 @@ interface RideSearchWithStateProps {
   initialFromLocation?: PlacePrediction | null;
   initialToLocation?: PlacePrediction | null;
   initialDate?: Date;
+  mode?: SearchMode;
 }
 
 export function RideSearchWithState({
@@ -38,6 +42,7 @@ export function RideSearchWithState({
   initialFromLocation = null,
   initialToLocation = null,
   initialDate,
+  mode = "rides",
 }: RideSearchWithStateProps) {
   const [fromLocation, setFromLocation] = useState<PlacePrediction | null>(
     initialFromLocation,
@@ -56,6 +61,7 @@ export function RideSearchWithState({
       onToLocationChange={setToLocation}
       date={date}
       onDateChange={setDate}
+      mode={mode}
     />
   );
 }
@@ -68,6 +74,7 @@ export function RideSearch({
   onToLocationChange,
   date,
   onDateChange,
+  mode = "rides",
 }: RideSearchProps) {
   const router = useRouter();
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -76,6 +83,7 @@ export function RideSearch({
     if (!fromLocation || !toLocation) return;
 
     // Create a URL-friendly slug from the route
+    slugger.reset();
     const slug = slugger.slug(
       fromLocation.mainText + " to " + toLocation.mainText,
     );
@@ -90,6 +98,11 @@ export function RideSearch({
       params.set("date", format(date, "yyyy-MM-dd"));
     }
 
+    // Add type param for passenger search
+    if (mode === "passengers") {
+      params.set("type", "wanted");
+    }
+
     router.push(`/search/${slug}?${params.toString()}`);
   };
 
@@ -101,12 +114,14 @@ export function RideSearch({
     onToLocationChange?.(temp ?? null);
   };
 
+  const isPassengerMode = mode === "passengers";
+
   return (
     <div className="bg-card/80 rounded-xl border p-6 shadow-lg backdrop-blur-sm">
       <div className="grid gap-4 lg:grid-cols-[1fr_auto_1fr_auto_auto]">
         <LocationPicker
-          label={showLabels ? "From" : undefined}
-          placeholder="Leaving from..."
+          label={showLabels ? (isPassengerMode ? "Your Starting Point" : "From") : undefined}
+          placeholder={isPassengerMode ? "Where are you leaving from..." : "Leaving from..."}
           value={fromLocation ?? null}
           onChange={
             onLocationChange ??
@@ -131,8 +146,8 @@ export function RideSearch({
         </div>
 
         <LocationPicker
-          label={showLabels ? "To" : undefined}
-          placeholder="Going to..."
+          label={showLabels ? (isPassengerMode ? "Your Destination" : "To") : undefined}
+          placeholder={isPassengerMode ? "Where are you heading..." : "Going to..."}
           value={toLocation ?? null}
           onChange={
             onToLocationChange ??
@@ -180,8 +195,12 @@ export function RideSearch({
             disabled={!canSearch}
             onClick={handleSearch}
           >
-            <Search className="size-4" />
-            Search Rides
+            {isPassengerMode ? (
+              <Users className="size-4" />
+            ) : (
+              <Search className="size-4" />
+            )}
+            {isPassengerMode ? "Find Passengers" : "Search Rides"}
           </Button>
         </div>
       </div>

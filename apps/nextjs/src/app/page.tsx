@@ -12,7 +12,7 @@ import {
 
 import { Button } from "@app/ui/button";
 
-import { HydrateClient } from "~/trpc/server";
+import { fetchQuery, HydrateClient, trpc } from "~/trpc/server";
 import { Navbar } from "./_components/navbar";
 import { PopularRoutes } from "./_components/popular-routes";
 import { RideSearchWithState } from "./_components/ride-search";
@@ -46,12 +46,18 @@ const homeJsonLd = {
   },
 };
 
-const stats = [
-  { label: "Active Members", value: "50K+", icon: Users },
-  { label: "Rides Posted", value: "250K+", icon: Car },
-  { label: "Cities Connected", value: "500+", icon: MapPin },
-  { label: "CO₂ Saved (tons)", value: "1,200+", icon: Leaf },
-];
+/**
+ * Format a number for display with appropriate suffix (K, M, etc.)
+ */
+function formatStatValue(value: number): string {
+  if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}M+`;
+  }
+  if (value >= 1_000) {
+    return `${(value / 1_000).toFixed(1).replace(/\.0$/, "")}K+`;
+  }
+  return value.toString();
+}
 
 // Decorative floating car SVG
 function FloatingCar({ className }: { className?: string }) {
@@ -156,7 +162,33 @@ function RoadPath({ className }: { className?: string }) {
   );
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Fetch real stats from the database
+  const homepageStats = await fetchQuery(trpc.stats.homepage.queryOptions());
+
+  const stats = [
+    {
+      label: "Active Members",
+      value: formatStatValue(homepageStats.activeMembers),
+      icon: Users,
+    },
+    {
+      label: "Rides Posted",
+      value: formatStatValue(homepageStats.ridesPosted),
+      icon: Car,
+    },
+    {
+      label: "Cities Connected",
+      value: formatStatValue(homepageStats.citiesConnected),
+      icon: MapPin,
+    },
+    {
+      label: "CO₂ Saved (tons)",
+      value: formatStatValue(homepageStats.co2SavedTons),
+      icon: Leaf,
+    },
+  ];
+
   return (
     <HydrateClient>
       <script

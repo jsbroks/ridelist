@@ -1,5 +1,9 @@
 import { redirect } from "next/navigation";
 
+import { eq } from "@app/db";
+import { db } from "@app/db/client";
+import { user } from "@app/db/schema";
+
 import { getSession } from "~/auth/server";
 import { ProfileForm } from "./_components/profile-form";
 
@@ -10,6 +14,11 @@ export default async function SettingsPage() {
     redirect("/login");
   }
 
+  // Fetch user with bio from database
+  const userData = await db.query.user.findFirst({
+    where: eq(user.id, session.user.id),
+  });
+
   return (
     <ProfileForm
       user={{
@@ -18,6 +27,7 @@ export default async function SettingsPage() {
         email: session.user.email,
         image: session.user.image,
         username: session.user.username,
+        bio: userData?.bio,
       }}
     />
   );

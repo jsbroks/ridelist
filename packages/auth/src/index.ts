@@ -3,7 +3,7 @@ import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
 import { emailHarmony, phoneHarmony } from "better-auth-harmony";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { username } from "better-auth/plugins";
+import { phoneNumber, username } from "better-auth/plugins";
 
 import { db } from "@app/db/client";
 
@@ -25,6 +25,7 @@ export function initAuth<
     plugins: [
       expo(),
       username(),
+      phoneNumber(),
       emailHarmony(),
       phoneHarmony(),
       ...(options.extraPlugins ?? []),

@@ -12,17 +12,27 @@ import { toast } from "@app/ui/toast";
 import type { PlacePrediction } from "~/app/_components/location-picker";
 import { LocationPicker } from "~/app/_components/location-picker";
 import { useTRPC } from "~/trpc/react";
+import { DirectionWarning } from "./direction-warning";
 
 interface UserRouteSelectorProps {
   rideId: string;
   initialPickup?: PlacePrediction | null;
   initialDropoff?: PlacePrediction | null;
+  routeGeometry?: {
+    type: "LineString";
+    coordinates: [number, number][];
+  };
+  userPickupLocation?: { lat: number; lng: number } | null;
+  userDropoffLocation?: { lat: number; lng: number } | null;
 }
 
 export function UserRouteSelector({
   rideId,
   initialPickup = null,
   initialDropoff = null,
+  routeGeometry,
+  userPickupLocation,
+  userDropoffLocation,
 }: UserRouteSelectorProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -138,6 +148,14 @@ export function UserRouteSelector({
         maxLength={500}
         disabled={isSubmitting}
       />
+
+      {routeGeometry && (
+        <DirectionWarning
+          routeGeometry={routeGeometry}
+          userPickupLocation={userPickupLocation ?? null}
+          userDropoffLocation={userDropoffLocation ?? null}
+        />
+      )}
 
       <Button
         type="submit"

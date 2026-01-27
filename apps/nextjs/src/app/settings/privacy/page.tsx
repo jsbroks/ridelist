@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getSession } from "~/auth/server";
+import { fetchQuery, trpc } from "~/trpc/server";
 import { PrivacySettings } from "./_components/privacy-settings";
 
 export default async function PrivacySettingsPage() {
@@ -10,5 +11,9 @@ export default async function PrivacySettingsPage() {
     redirect("/login");
   }
 
-  return <PrivacySettings />;
+  const privacySettings = await fetchQuery(
+    trpc.user.getPrivacySettings.queryOptions(),
+  );
+
+  return <PrivacySettings initialSettings={privacySettings} />;
 }

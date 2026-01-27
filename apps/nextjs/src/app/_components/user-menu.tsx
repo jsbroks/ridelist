@@ -3,7 +3,14 @@
 import type React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Car, LogIn, LogOut, MessageSquare, Settings, User } from "lucide-react";
+import {
+  Car,
+  LogIn,
+  LogOut,
+  MessageSquare,
+  Settings,
+  User,
+} from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@app/ui/avatar";
 import { Button } from "@app/ui/button";

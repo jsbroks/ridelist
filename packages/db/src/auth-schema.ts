@@ -14,7 +14,13 @@ export const user = pgTable("user", {
     .notNull(),
   username: text("username").unique(),
   displayUsername: text("display_username"),
+  phoneNumber: text("phone_number").unique(),
+  phoneNumberVerified: boolean("phone_number_verified"),
   normalizedEmail: text("normalized_email").unique(),
+
+  // non-better-auth fields
+  bio: text("bio"),
+  showPhoneNumber: boolean("show_phone_number").default(false).notNull(),
 });
 
 export const session = pgTable(
