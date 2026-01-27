@@ -221,7 +221,6 @@ export const CreateDriverRouteSchema = createInsertSchema(driverRoute, {
 }).omit({
   id: true,
   driverId: true,
-  status: true,
   createdAt: true,
   updatedAt: true,
 });

@@ -35,10 +35,10 @@ export const Navbar: React.FC<NavbarProps> = ({ className }) => {
               Find Passengers
             </Button>
           </Link>
-          <Link href="/post">
+          <Link href="/post/driver">
             <Button variant="ghost" className="gap-2">
               <Plus className="size-4" />
-              Post a Ride
+              Post a Trip
             </Button>
           </Link>
         </div>

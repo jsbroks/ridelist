@@ -242,7 +242,7 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
       <div className="from-primary/5 via-background to-background fixed inset-0 -z-10 bg-linear-to-br" />
       <div className="from-primary/10 fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] via-transparent to-transparent" />
 
-      <Navbar />
+      <Navbar className="border-b" />
 
       <main className="flex-1 py-8">
         <div className="container">
@@ -258,7 +258,7 @@ export const PostRideForm: React.FC<PostRideFormProps> = ({
           {/* Header */}
           <div className="mb-8">
             <h1 className="mb-2 text-3xl font-bold tracking-tight">
-              Post a Ride
+              Post a Trip
             </h1>
             <p className="text-muted-foreground">
               Share your journey and connect with passengers heading your way.

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition */
 "use client";
 
 import { useEffect, useRef } from "react";
@@ -67,7 +68,7 @@ function UserRoute({
           strokeOpacity: 0.8,
           strokeWeight: 4,
           map,
-          zIndex: 1, // Below the driver's route
+          zIndex: 2, // Above the driver's route
         });
 
         // Fit bounds to show the route
@@ -114,10 +115,12 @@ function DriverRoute() {
 
     // Convert GeoJSON coordinates to Google Maps LatLng
     // GeoJSON uses [lng, lat], Google Maps uses {lat, lng}
-    const path = hoveredTrip.routeGeometry.coordinates.map(([lng, lat]) => ({
-      lat,
-      lng,
-    }));
+    const path = hoveredTrip.routeGeometry.coordinates.map(
+      (coord): google.maps.LatLngLiteral => ({
+        lat: coord[1] ?? 0,
+        lng: coord[0] ?? 0,
+      }),
+    );
 
     // Create the driver's route polyline (red)
     polylineRef.current = new google.maps.Polyline({
@@ -127,7 +130,7 @@ function DriverRoute() {
       strokeOpacity: 0.9,
       strokeWeight: 5,
       map,
-      zIndex: 2, // Above the user's route
+      zIndex: 1, // Below the user's route
     });
 
     // Fit bounds to show both routes
@@ -261,7 +264,9 @@ function MapContent({
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="h-0.5 w-4 rounded bg-red-500" />
-                  <span className="text-muted-foreground">Driver&apos;s route</span>
+                  <span className="text-muted-foreground">
+                    Driver&apos;s route
+                  </span>
                 </div>
               </div>
               <p className="text-muted-foreground text-center text-xs">

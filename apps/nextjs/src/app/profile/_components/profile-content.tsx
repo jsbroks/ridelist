@@ -410,7 +410,7 @@ export const ProfileContent: React.FC<ProfileContentProps> = ({
   const queryClient = useQueryClient();
 
   const updateBioMutation = useMutation(
-    trpc.user.updateBio.mutationOptions({
+    trpc.user.updateProfile.mutationOptions({
       onSuccess: () => {
         void queryClient.invalidateQueries();
         setIsEditingBio(false);
@@ -653,7 +653,7 @@ export const ProfileContent: React.FC<ProfileContentProps> = ({
                     className="w-full justify-start gap-2"
                   >
                     <Car className="size-4" />
-                    Post a Ride
+                    Post a Trip
                   </Button>
                 </Link>
                 <Link href="/search" className="block">

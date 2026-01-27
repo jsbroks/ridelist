@@ -162,11 +162,11 @@ export const MobileMenu: React.FC = () => {
               Find Passengers
             </MobileMenuLink>
             <MobileMenuLink
-              href="/post"
+              href="/post/driver"
               icon={<Plus className="text-primary size-5" />}
               onClick={closeMenu}
             >
-              Post a Ride
+              Post a Trip
             </MobileMenuLink>
 
             <div className="my-2 border-t" />

@@ -1,24 +1,12 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
-import {
-  Bike,
-  Calendar,
-  Car,
-  Clock,
-  Dog,
-  Luggage,
-  MapPin,
-  Navigation,
-  Snowflake,
-  Star,
-  Users,
-} from "lucide-react";
+import { format, isToday, isTomorrow, startOfDay } from "date-fns";
+import { Calendar, Car, MapPin, Navigation, Star, Users } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@app/ui/avatar";
-import { Badge } from "@app/ui/badge";
 import { Button } from "@app/ui/button";
 import { Skeleton } from "@app/ui/skeleton";
 
@@ -42,27 +30,61 @@ function getInitials(name: string | null | undefined): string {
     .slice(0, 2);
 }
 
-interface SearchTripCardProps {
-  trip: {
-    id: string;
-    departureTime: Date;
-    seatsAvailable: number;
-    pickupDistanceKm: number;
-    dropoffDistanceKm: number;
-    driverRoute: {
-      fromName: string;
-      toName: string;
-      pricePerSeat: number | null;
-      routeGeometry: GeoJSON.LineString;
-    };
-    driver: {
-      id: string;
-      name: string;
-      image: string | null;
-    };
+interface TripData {
+  id: string;
+  departureTime: Date;
+  seatsAvailable: number;
+  pickupDistanceKm: number;
+  dropoffDistanceKm: number;
+  driverRoute: {
+    fromName: string;
+    toName: string;
+    pricePerSeat: number | null;
+    routeGeometry: GeoJSON.LineString;
   };
+  driver: {
+    id: string;
+    name: string;
+    image: string | null;
+  };
+}
+
+interface SearchTripCardProps {
+  trip: TripData;
   fromPlaceId: string;
   toPlaceId: string;
+}
+
+// Group trips by date and sort from newest to oldest
+function groupTripsByDate(trips: TripData[]): Map<string, TripData[]> {
+  const grouped = new Map<string, TripData[]>();
+
+  // Sort trips by departure time (newest first)
+  const sortedTrips = [...trips].sort(
+    (a, b) =>
+      new Date(a.departureTime).getTime() - new Date(b.departureTime).getTime(),
+  );
+
+  for (const trip of sortedTrips) {
+    const dateKey = startOfDay(new Date(trip.departureTime)).toISOString();
+    const existing = grouped.get(dateKey) ?? [];
+    grouped.set(dateKey, [...existing, trip]);
+  }
+
+  // Sort date keys (earliest dates first for upcoming trips)
+  const sortedEntries = [...grouped.entries()].sort(
+    ([a], [b]) => new Date(a).getTime() - new Date(b).getTime(),
+  );
+
+  return new Map(sortedEntries);
+}
+
+// Format date header
+function formatDateHeader(dateKey: string): string {
+  const date = new Date(dateKey);
+  if (isToday(date)) return "Today";
+  if (isTomorrow(date)) return "Tomorrow";
+  return format(date, "EEEE, MMMM d");
 }
 
 function SearchTripCard({ trip, fromPlaceId, toPlaceId }: SearchTripCardProps) {
@@ -109,196 +131,60 @@ function SearchTripCard({ trip, fromPlaceId, toPlaceId }: SearchTripCardProps) {
               </div>
             </div>
           </div>
+          {/* Departure time - prominent */}
+          <div className="text-center">
+            <p className="text-xl font-bold">
+              {format(departureDate, "h:mm a")}
+            </p>
+            <p className="text-muted-foreground text-xs">departure</p>
+          </div>
+
+          {/* Price */}
           <div className="text-right">
             <p className="text-xl font-bold">
               ${((trip.driverRoute.pricePerSeat ?? 0) / 100).toFixed(0)}
             </p>
-            <p className="text-muted-foreground text-sm">per seat</p>
+            <p className="text-muted-foreground text-xs">per seat</p>
           </div>
         </div>
 
         {/* Route info */}
-        <div className="mb-4 space-y-2">
-          <div className="flex items-start gap-3">
-            <div className="flex flex-col items-center">
-              <div className="bg-primary size-2 rounded-full" />
-              <div className="bg-border h-8 w-px" />
-              <div className="size-2 rounded-full bg-red-500" />
-            </div>
-            <div className="flex-1 space-y-3">
-              <div>
-                <p className="font-medium">{trip.driverRoute.fromName}</p>
-                <p className="text-muted-foreground text-xs">
-                  ~{trip.pickupDistanceKm} km from your pickup
-                </p>
-              </div>
-              <div>
-                <p className="font-medium">{trip.driverRoute.toName}</p>
-                <p className="text-muted-foreground text-xs">
-                  ~{trip.dropoffDistanceKm} km from your dropoff
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom row: Date, time, seats */}
-        <div className="flex flex-wrap items-center gap-4 text-sm">
-          <div className="flex items-center gap-1.5">
-            <Calendar className="text-muted-foreground size-4" />
-            <span>{format(departureDate, "EEE, MMM d")}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Clock className="text-muted-foreground size-4" />
-            <span>{format(departureDate, "h:mm a")}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Users className="text-muted-foreground size-4" />
-            <span>
-              {trip.seatsAvailable} seat{trip.seatsAvailable !== 1 ? "s" : ""}{" "}
-              left
-            </span>
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-interface PassengerCardProps {
-  request: {
-    id: string;
-    fromName: string;
-    toName: string;
-    departureTime: Date;
-    seatsNeeded: number;
-    maxPricePerSeat: number | null;
-    flexibilityMinutes: number | null;
-    description: string | null;
-    luggageSize: string | null;
-    hasBike: boolean | null;
-    hasSkis: boolean | null;
-    hasPet: boolean | null;
-    fromDistanceKm: number;
-    toDistanceKm: number;
-    passenger: {
-      id: string;
-      name: string;
-      image: string | null;
-    };
-  };
-}
-
-function PassengerCard({ request }: PassengerCardProps) {
-  const departureDate = new Date(request.departureTime);
-
-  return (
-    <Link href={`/passengers/request/${request.id}`} className="block">
-      <div className="hover:bg-muted/50 hover:border-primary/20 rounded-lg border p-4 transition-all">
-        {/* Top row: Passenger info and budget */}
-        <div className="mb-4 flex items-start justify-between">
+        <div className="mb-4">
           <div className="flex items-center gap-3">
-            <Avatar className="size-12">
-              <AvatarImage
-                src={request.passenger.image ?? undefined}
-                alt={request.passenger.name}
-              />
-              <AvatarFallback>
-                {getInitials(request.passenger.name)}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-medium">{request.passenger.name}</p>
-              <div className="text-muted-foreground flex items-center gap-1 text-sm">
-                <Users className="size-3" />
-                <span>
-                  {request.seatsNeeded} seat
-                  {request.seatsNeeded !== 1 ? "s" : ""} needed
-                </span>
-              </div>
-            </div>
-          </div>
-          {request.maxPricePerSeat && (
-            <div className="text-right">
-              <p className="text-xl font-bold">
-                Up to ${(request.maxPricePerSeat / 100).toFixed(0)}
+            {/* From */}
+            <div className="min-w-0 shrink-0">
+              <p className="truncate font-medium">
+                {trip.driverRoute.fromName}
               </p>
-              <p className="text-muted-foreground text-sm">per seat</p>
+              <p className="text-muted-foreground text-xs">
+                ~{trip.pickupDistanceKm} km from pickup
+              </p>
             </div>
-          )}
-        </div>
 
-        {/* Route info */}
-        <div className="mb-4 space-y-2">
-          <div className="flex items-start gap-3">
-            <div className="flex flex-col items-center">
+            {/* Arrow connector */}
+            <div className="flex grow items-center gap-1.5">
               <div className="bg-primary size-2 rounded-full" />
-              <div className="bg-border h-8 w-px" />
+              <div className="bg-border h-px w-full" />
               <div className="size-2 rounded-full bg-red-500" />
             </div>
-            <div className="flex-1 space-y-3">
-              <div>
-                <p className="font-medium">{request.fromName}</p>
-                <p className="text-muted-foreground text-xs">
-                  ~{request.fromDistanceKm} km from your start
-                </p>
-              </div>
-              <div>
-                <p className="font-medium">{request.toName}</p>
-                <p className="text-muted-foreground text-xs">
-                  ~{request.toDistanceKm} km from your destination
-                </p>
-              </div>
+
+            {/* To */}
+            <div className="min-w-0 shrink-0 text-right">
+              <p className="truncate font-medium">{trip.driverRoute.toName}</p>
+              <p className="text-muted-foreground text-xs">
+                ~{trip.dropoffDistanceKm} km from dropoff
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Description if present */}
-        {request.description && (
-          <p className="text-muted-foreground mb-4 line-clamp-2 text-sm">
-            {request.description}
-          </p>
-        )}
-
-        {/* Bottom row: Date, time, preferences */}
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <div className="flex items-center gap-1.5">
-            <Calendar className="text-muted-foreground size-4" />
-            <span>{format(departureDate, "EEE, MMM d")}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Clock className="text-muted-foreground size-4" />
-            <span>{format(departureDate, "h:mm a")}</span>
-          </div>
-          {request.flexibilityMinutes && request.flexibilityMinutes > 0 && (
-            <Badge variant="secondary" className="text-xs">
-              ±{request.flexibilityMinutes} min flexible
-            </Badge>
-          )}
-          {request.luggageSize && (
-            <Badge variant="outline" className="gap-1 text-xs">
-              <Luggage className="size-3" />
-              {request.luggageSize}
-            </Badge>
-          )}
-          {request.hasBike && (
-            <Badge variant="outline" className="gap-1 text-xs">
-              <Bike className="size-3" />
-              Bike
-            </Badge>
-          )}
-          {request.hasSkis && (
-            <Badge variant="outline" className="gap-1 text-xs">
-              <Snowflake className="size-3" />
-              Skis
-            </Badge>
-          )}
-          {request.hasPet && (
-            <Badge variant="outline" className="gap-1 text-xs">
-              <Dog className="size-3" />
-              Pet
-            </Badge>
-          )}
+        {/* Bottom row: seats available */}
+        <div className="flex items-center gap-1.5 text-sm">
+          <Users className="text-muted-foreground size-4" />
+          <span>
+            {trip.seatsAvailable} seat{trip.seatsAvailable !== 1 ? "s" : ""}{" "}
+            available
+          </span>
         </div>
       </div>
     </Link>
@@ -399,6 +285,16 @@ export function SearchResults({
 
   const isLoading = fromLoading || toLoading || (canSearch && searchLoading);
 
+  // Group trips by date (must be before early returns for hook rules)
+  const groupedTrips = useMemo(() => {
+    if (!tripResults) return new Map<string, TripData[]>();
+    const tripsWithSeats = tripResults.map((trip) => ({
+      ...trip,
+      seatsAvailable: 0,
+    }));
+    return groupTripsByDate(tripsWithSeats);
+  }, [tripResults]);
+
   if (isLoading) {
     return <SearchResultsSkeleton />;
   }
@@ -478,14 +374,32 @@ export function SearchResults({
   }
 
   return (
-    <div className="space-y-4">
-      {tripResults.map((trip) => (
-        <SearchTripCard
-          key={trip.id}
-          trip={{ ...trip, seatsAvailable: 0 }}
-          fromPlaceId={fromPlaceId}
-          toPlaceId={toPlaceId}
-        />
+    <div className="space-y-6">
+      {[...groupedTrips.entries()].map(([dateKey, trips]) => (
+        <div key={dateKey}>
+          {/* Date header */}
+          <div className="mb-3 flex items-center gap-2">
+            <Calendar className="text-muted-foreground size-4" />
+            <h3 className="text-sm font-semibold">
+              {formatDateHeader(dateKey)}
+            </h3>
+            <span className="text-muted-foreground text-xs">
+              ({trips.length} trip{trips.length !== 1 ? "s" : ""})
+            </span>
+          </div>
+
+          {/* Trips for this date */}
+          <div className="space-y-3">
+            {trips.map((trip) => (
+              <SearchTripCard
+                key={trip.id}
+                trip={trip}
+                fromPlaceId={fromPlaceId}
+                toPlaceId={toPlaceId}
+              />
+            ))}
+          </div>
+        </div>
       ))}
     </div>
   );

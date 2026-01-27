@@ -300,7 +300,7 @@ export default async function HomePage() {
         {/* CTA Section */}
         <section
           className="bg-primary/5 relative overflow-hidden py-20"
-          aria-label="Post a ride"
+          aria-label="Post a trip"
         >
           {/* Animated background */}
           <div className="pointer-events-none absolute inset-0">
@@ -325,7 +325,7 @@ export default async function HomePage() {
                 className="group shadow-lg transition-all hover:scale-105 hover:shadow-xl"
               >
                 <Car className="size-4 transition-transform group-hover:rotate-12" />
-                Post a Ride
+                Post a Trip
               </Button>
               <Button
                 size="lg"
